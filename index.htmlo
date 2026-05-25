@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+    <title>Supreme Console | SK LOGIC</title>
+    
+    <!-- Ultra Modern Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- 🔥 Security -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="firebase_config.js"></script>
+    <script>protectPage();</script>
+    <script src="theme_engine.js"></script>
+    <script src="lead_notifier.js"></script>
+
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            --primary-glow: rgba(139, 92, 246, 0.4);
+            --secondary: #06b6d4;
+            --bg: #030712;
+            --surface: rgba(15, 23, 42, 0.6);
+            --card-base: rgba(30, 41, 59, 0.3);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #ffffff;
+            --text-muted: #94a3b8;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, #030712);
+            color: var(--text);
+            min-height: 100vh;
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: 120px;
+        }
+
+        /* ✨ Animated Background Gradients */
+        .bg-glow {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: 
+                radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(244, 63, 94, 0.05) 0%, transparent 40%);
+            z-index: -1; pointer-events: none;
+        }
+
+        header {
+            position: sticky; top: 0; z-index: 1000;
+            background: rgba(3, 7, 18, 0.7); backdrop-filter: blur(25px);
+            padding: calc(14px + env(safe-area-inset-top, 0px)) 25px 22px; border-bottom: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .header-logo { display: flex; align-items: center; gap: 14px; }
+        .logo-box { 
+            width: 44px; height: 44px; background: linear-gradient(135deg, #8b5cf6, #3b82f6); 
+            border-radius: 14px; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+        .logo-box i { font-size: 22px; color: white; }
+        .header-info h1 { font-size: 19px; font-weight: 800; letter-spacing: -0.8px; }
+        .header-info span { font-size: 9px; text-transform: uppercase; color: #10b981; font-weight: 800; letter-spacing: 1px; }
+
+        .container { max-width: 500px; margin: 0 auto; padding: 20px; }
+
+        /* 📦 High-Fidelity Metrics */
+        .kpi-container { display: flex; gap: 15px; margin-bottom: 25px; }
+        .kpi-chip { 
+            flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; 
+            padding: 18px; display: flex; flex-direction: column; gap: 5px; backdrop-filter: blur(10px);
+            position: relative; overflow: hidden;
+        }
+        .kpi-chip::before { content: ''; position: absolute; top:0; left:0; width:3px; height:100%; background: var(--primary); }
+        .kpi-chip .label { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; }
+        .kpi-chip .val { font-size: 20px; font-weight: 800; font-family: 'Outfit'; }
+
+        /* 🔍 Ultra Search */
+        .search-area { position: relative; margin-bottom: 30px; }
+        .search-area i { position: absolute; left: 22px; top: 20px; color: var(--primary); font-size: 18px; }
+        .search-input { 
+            width: 100%; padding: 18px 25px 18px 58px; background: rgba(15, 23, 42, 0.4); 
+            border: 1px solid var(--border); border-radius: 20px; color: white; font-size: 16px; 
+            transition: 0.3s; backdrop-filter: blur(10px);
+        }
+        .search-input:focus { border-color: var(--primary); box-shadow: 0 0 30px rgba(139, 92, 246, 0.15); background: rgba(15, 23, 42, 0.8); }
+
+        /* 📱 Unified App Grid */
+        .grid-section { margin-bottom: 35px; }
+        .section-title { font-size: 12px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .section-title i { color: var(--primary); font-size: 14px; }
+
+        .app-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .app-card { text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        .app-card:active { transform: scale(0.9); transition: 0.1s; }
+        
+        .icon-circle { 
+            width: 68px; height: 68px; border-radius: 22px; display: flex; align-items: center; justify-content: center;
+            font-size: 26px; color: white; border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.4); position: relative;
+        }
+        .icon-circle i { filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2)); }
+        
+        /* Premium Backgrounds */
+        .grad-sale { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+        .grad-scan { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .grad-ren { background: linear-gradient(135deg, #ec4899, #d946ef); }
+        .grad-stock { background: linear-gradient(135deg, #10b981, #059669); }
+        .grad-office { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .grad-sim { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .grad-partner { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .grad-reports { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+        .grad-db { background: linear-gradient(135deg, #64748b, #475569); }
+
+        .app-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-align: center; }
+
+        /* ⚓ Custom Floating Navigation */
+        .nav-dock {
+            position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%);
+            width: 92%; max-width: 420px; height: 80px; background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(30px); border: 1px solid var(--border); border-radius: 35px;
+            display: flex; justify-content: space-around; align-items: center; z-index: 5000;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.8);
+        }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: var(--text-muted); transition: 0.3s; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item i { font-size: 24px; transition: 0.3s; }
+        .nav-item:active i { transform: translateY(-5px); }
+        .nav-item span { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* 🔍 Results Overlay */
+        #searchOverlay {
+            position: fixed; inset: 0; background: rgba(3, 7, 18, 0.98); z-index: 6000;
+            padding: 30px 25px; display: none; backdrop-filter: blur(40px);
+        }
+
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        .live-pulse { width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
+
+        .glass-card { background: var(--surface); border: 1px solid var(--border); backdrop-filter: blur(20px); transition: 0.3s; }
+        .btn-action { 
+            background: var(--card-base); border: 1px solid var(--border); color: var(--text); padding: 8px 16px; 
+            border-radius: 12px; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; transition: 0.2s;
+        }
+        .btn-action:active { transform: scale(0.95); background: var(--primary); }
+
+        @media (max-width: 640px) {
+            header {
+                padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 18px;
+            }
+
+            .container {
+                padding: 16px;
+            }
+
+            #stockAlert {
+                margin: 12px 16px 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-glow"></div>
+
+    <header>
+        <div class="header-logo">
+            <div class="logo-box"><i class="fa-solid fa-bolt-lightning"></i></div>
+            <div class="header-info">
+                <h1>SUPREME CONSOLE</h1>
+                <span><span class="live-pulse"></span> ONLINE • v4.0 (Enterprise)</span>
+            </div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <div class="logo-box" style="width:44px; height:44px; background:var(--card-base); cursor:pointer;" onclick="toggleTheme()" title="Change Theme">
+                <i class="fa-solid fa-palette"></i>
+            </div>
+            <div class="logo-box" style="width:44px; height:44px; background:var(--card-base);" onclick="firebase.auth().signOut()">
+                <i class="fa-solid fa-power-off" style="font-size:16px;"></i>
+            </div>
+        </div>
+    </header>
+    
+    <!-- ⚠️ Stock Alert Bar (Feature 7) -->
+    <div id="stockAlert" style="display:none; margin: 15px 25px 0; background: rgba(244, 63, 94, 0.15); border: 1px solid var(--primary); padding: 12px 20px; border-radius: 16px; color: var(--primary); font-size: 13px; font-weight: 700; align-items: center; gap: 12px;">
+        <i class="fa-solid fa-triangle-exclamation"></i> <span>LOW STOCK WARNING: Less than 5 units left!</span>
+    </div>
+
+    <div class="container">
+        
+        <!-- 🪙 Financial Quick Stats -->
+        <div class="kpi-container">
+            <div class="kpi-chip">
+                <span class="label">Day Sales</span>
+                <span class="val" id="todaySales">₹ 0</span>
+            </div>
+            <div class="kpi-chip" style="--primary: var(--secondary)">
+                <span class="label">Monthly Revenue</span>
+                <span class="val" id="monthlySales">₹ 0</span>
+            </div>
+        </div>
+
+        <!-- 🏷️ Quick Actions (Horizontal Scroll or Grid) -->
+        <div class="search-area">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" class="search-input" id="omniSearch" placeholder="Search anything (IMEI, Vehicle...)" oninput="handleSearch(this.value)">
+        </div>
+
+        <!-- 🤖 SK-AI Quick Brain -->
+        <div class="grid-section" style="margin-bottom: 25px;">
+            <div class="section-title"><i class="fa-solid fa-brain"></i> Ask SK-AI Assistant</div>
+            <div class="glass-card" style="padding: 15px; border-radius: 24px; background: rgba(139, 92, 246, 0.05); border-color: rgba(139, 92, 246, 0.2);">
+                <div class="search-area" style="margin-bottom: 12px;">
+                    <i class="fa-solid fa-message-bot" style="color: var(--primary);"></i>
+                    <input type="text" class="search-input" id="aiQuery" placeholder="Ask me anything in Tanglish..." 
+                           onkeypress="if(event.key === 'Enter') askAI(this.value)"
+                           style="background: var(--bg); border-radius: 18px; padding-left: 50px;">
+                </div>
+                <div style="display:flex; gap:8px; overflow-x: auto; padding-bottom:5px;">
+                    <button class="btn-action" style="font-size:10px; padding:6px 12px;" onclick="askAI('Today sale')">Inniku Sale?</button>
+                    <button class="btn-action" style="font-size:10px; padding:6px 12px;" onclick="askAI('Profit this month')">Labam?</button>
+                    <button class="btn-action" style="font-size:10px; padding:6px 12px;" onclick="askAI('Renewals today')">Renewals?</button>
+                    <button class="btn-action" style="font-size:10px; padding:6px 12px;" onclick="askAI('Stock status')">Iruppu?</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🚀 CORE OPERATIONS -->
+        <div class="grid-section">
+            <div class="section-title"><i class="fa-solid fa-rocket"></i> Key Operations</div>
+            <div class="app-grid">
+                <a href="sales_entry.php" class="app-card">
+                    <div class="icon-circle grad-sale"><i class="fa-solid fa-cart-plus"></i></div>
+                    <span class="app-label">New Sale</span>
+                </a>
+                <a href="quotation_entry.php" class="app-card">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                    <span class="app-label">Quotation</span>
+                </a>
+                <a href="inventory_scanner.php" class="app-card">
+                    <div class="icon-circle grad-scan"><i class="fa-solid fa-barcode"></i></div>
+                    <span class="app-label">Scan Stock</span>
+                </a>
+                <a href="renewal_entry.php" class="app-card">
+                    <div class="icon-circle grad-ren"><i class="fa-solid fa-calendar-plus"></i></div>
+                    <span class="app-label">Renewal</span>
+                </a>
+                <a href="live_stock.php" class="app-card">
+                    <div class="icon-circle grad-stock"><i class="fa-solid fa-warehouse"></i></div>
+                    <span class="app-label">Inventory</span>
+                </a>
+                <a href="meta_leads.php" class="app-card">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #1877F2, #0056b3);"><i class="fa-brands fa-facebook"></i></div>
+                    <span class="app-label">Meta Leads</span>
+                </a>
+                <a href="appointment_manager.php" class="app-card">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);"><i class="fa-solid fa-calendar-check"></i></div>
+                    <span class="app-label">Appt Reminder</span>
+                </a>
+                <a href="sales_invoice_search.php" class="app-card">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #f43f5e, #fb7185);"><i class="fa-solid fa-file-invoice"></i></div>
+                    <span class="app-label">Sales Bills</span>
+                </a>
+                <a href="renewal_invoice_search.php" class="app-card">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #8b5cf6, #a855f7);"><i class="fa-solid fa-receipt"></i></div>
+                    <span class="app-label">Renewal Bills</span>
+                </a>
+                <a href="dealer_invoice_search.php" class="app-card">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #06b6d4, #14b8a6);"><i class="fa-solid fa-file-signature"></i></div>
+                    <span class="app-label">Dealer Invoice</span>
+                </a>
+                <a href="crm_manager.php" class="app-card">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #f59e0b, #ea580c);"><i class="fa-solid fa-users-viewfinder"></i></div>
+                    <span class="app-label">CRM Leads</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 🏛️ OFFICE & FINANCIALS -->
+        <div class="grid-section">
+            <div class="section-title"><i class="fa-solid fa-shield-halved"></i> Management</div>
+            <div class="app-grid">
+                <a href="office_settlement.php" class="app-card">
+                    <div class="icon-circle grad-office"><i class="fa-solid fa-building-columns"></i></div>
+                    <span class="app-label">Office</span>
+                </a>
+                <a href="expense_manager.php" class="app-card">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #f43f5e, #e11d48);"><i class="fa-solid fa-money-bill-transfer"></i></div>
+                    <span class="app-label">Financials</span>
+                </a>
+                <a href="sim_settlement.php" class="app-card">
+                    <div class="icon-circle grad-sim"><i class="fa-solid fa-tower-cell"></i></div>
+                    <span class="app-label">SIM Dues</span>
+                </a>
+                <a href="renewal_dashboard.php" class="app-card">
+                    <div class="icon-circle grad-ren" style="filter: hue-rotate(240deg);"><i class="fa-solid fa-bell"></i></div>
+                    <span class="app-label">Due Alerts</span>
+                </a>
+                <a href="dealer_manager.php" class="app-card">
+                    <div class="icon-circle grad-partner"><i class="fa-solid fa-users-gear"></i></div>
+                    <span class="app-label">Partners</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- 📂 DATA & SYSTEM -->
+        <div class="grid-section">
+            <div class="section-title"><i class="fa-solid fa-globe"></i> Web Portal</div>
+            <div class="app-grid">
+                <a href="https://www.airtel.in/m2m/#/" class="app-card" target="_blank" rel="noopener noreferrer">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #ef4444, #f97316);"><i class="fa-solid fa-satellite-dish"></i></div>
+                    <span class="app-label">M2M</span>
+                </a>
+                <a href="https://navilap.com/gps/login" class="app-card" target="_blank" rel="noopener noreferrer">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #2563eb, #0ea5e9);"><i class="fa-solid fa-location-dot"></i></div>
+                    <span class="app-label">Navi</span>
+                </a>
+                <a href="https://dotrack.in/login/login.html" class="app-card" target="_blank" rel="noopener noreferrer">
+                    <div class="icon-circle" style="background: linear-gradient(135deg, #16a34a, #22c55e);"><i class="fa-solid fa-route"></i></div>
+                    <span class="app-label">Do Track</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="grid-section">
+            <div class="section-title"><i class="fa-solid fa-server"></i> System Tools</div>
+            <div class="app-grid">
+                <a href="master_device.php" class="app-card">
+                    <div class="icon-circle" style="background: #1e293b;"><i class="fa-solid fa-microchip"></i></div>
+                    <span class="app-label">Device+</span>
+                </a>
+                <a href="master_software.php" class="app-card">
+                    <div class="icon-circle" style="background: #1e293b;"><i class="fa-solid fa-code"></i></div>
+                    <span class="app-label">Software+</span>
+                </a>
+                <a href="reports.php" class="app-card">
+                    <div class="icon-circle grad-reports"><i class="fa-solid fa-chart-line"></i></div>
+                    <span class="app-label">Insights</span>
+                </a>
+                <a href="data_explorer.php" class="app-card">
+                    <div class="icon-circle grad-db"><i class="fa-solid fa-database"></i></div>
+                    <span class="app-label">Raw DB</span>
+                </a>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 🧭 Floating Navigation -->
+    <nav class="nav-dock">
+        <a href="index.html" class="nav-item active"><i class="fa-solid fa-house"></i><span>Home</span></a>
+        <a href="sales_entry.php" class="nav-item"><i class="fa-solid fa-plus"></i><span>Sale</span></a>
+        <a href="reports.php" class="nav-item"><i class="fa-solid fa-chart-simple"></i><span>Charts</span></a>
+        <a href="ai_chat.php" class="nav-item"><i class="fa-solid fa-robot"></i><span>AI</span></a>
+    </nav>
+
+    <!-- 🔍 Overlay -->
+    <div id="searchOverlay">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
+            <h2 style="font-size:28px; font-weight:800; letter-spacing:-1px;">Results</h2>
+            <i class="fa-solid fa-circle-xmark" onclick="closeSearch()" style="font-size:30px; opacity:0.5;"></i>
+        </div>
+        <div id="searchResults"></div>
+    </div>
+
+    <script>
+        async function fetchStats() {
+            try {
+                const res = await fetch('api_reports.php?action=kpi');
+                const data = await res.json();
+                document.getElementById('todaySales').innerText = '₹' + (data.todaySales || 0).toLocaleString();
+                document.getElementById('monthlySales').innerText = '₹' + (data.monthlySales || 0).toLocaleString();
+                
+                // Feature 7: Stock Alert
+                fetch('api_master_data.php?action=get_stock_count')
+                .then(r => r.json())
+                .then(stock => {
+                    if(stock.total < 5) document.getElementById('stockAlert').style.display='flex';
+                });
+            } catch(e) {}
+        }
+
+        let searchT;
+        function handleSearch(q) {
+            const overlay = document.getElementById('searchOverlay');
+            if(!q || q.length < 2) { overlay.style.display = 'none'; return; }
+            
+            clearTimeout(searchT);
+            searchT = setTimeout(async () => {
+                const r = await fetch(`api_global_search.php?q=${encodeURIComponent(q)}`);
+                const data = await r.json();
+                const container = document.getElementById('searchResults');
+                if(data.results && data.results.length > 0) {
+                    container.innerHTML = data.results.map(res => `
+                        <a href="${res.link}" style="display:flex; align-items:center; gap:20px; background:rgba(255,255,255,0.03); padding:20px; border-radius:24px; margin-bottom:15px; text-decoration:none; color:inherit; border:1px solid rgba(255,255,255,0.08);">
+                            <div style="width:50px; height:50px; background:linear-gradient(135deg, #8b5cf6, #3b82f6); border-radius:16px; display:flex; align-items:center; justify-content:center; color:white;"><i class="fa-solid fa-magnifying-glass"></i></div>
+                            <div>
+                                <div style="font-weight:700; font-size:16px;">${res.title}</div>
+                                <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; margin-top:4px;">${res.type} • ${res.subtitle}</div>
+                            </div>
+                        </a>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div style="text-align:center; padding:50px; color:var(--text-muted);">No records found. Try a different term.</div>';
+                }
+                overlay.style.display = 'block';
+            }, 300);
+        }
+
+        function closeSearch() {
+            document.getElementById('searchOverlay').style.display = 'none';
+            document.getElementById('omniSearch').value = '';
+        }
+
+        async function askAI(q) {
+            if(!q) return;
+            const input = document.getElementById('aiQuery');
+            const originalVal = input.placeholder;
+            input.value = '';
+            input.placeholder = "🧠 Thinking...";
+            
+            try {
+                const res = await fetch(`api_ai_assistant.php?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                
+                // Show in results overlay or alert
+                const container = document.getElementById('searchResults');
+                container.innerHTML = `
+                    <div style="background:linear-gradient(135deg, #1e1b4b, #0f172a); padding:30px; border-radius:32px; border:1px solid var(--primary); box-shadow:0 20px 50px rgba(0,0,0,0.5);">
+                        <div style="color:var(--primary); font-size:12px; font-weight:800; margin-bottom:15px; text-transform:uppercase; letter-spacing:2px;">SK-AI Assistant</div>
+                        <div style="font-size:20px; font-weight:600; line-height:1.5; color:white;">${data.answer}</div>
+                        <button onclick="closeSearch()" style="margin-top:25px; width:100%; padding:15px; border-radius:15px; background:var(--primary); border:none; color:white; font-weight:800;">OK, GOT IT</button>
+                    </div>
+                `;
+                document.getElementById('searchOverlay').style.display = 'block';
+            } catch(e) {
+                alert("AI Link Failed");
+            } finally {
+                input.placeholder = originalVal;
+            }
+        }
+
+        window.onload = fetchStats;
+
+        // Vibrate on touch
+        document.querySelectorAll('a').forEach(lnk => {
+            lnk.onmousedown = () => { if(window.navigator.vibrate) window.navigator.vibrate(12); };
+        });
+    </script>
+</body>
+</html>

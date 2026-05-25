@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0">
+    <title>Supreme Console | SK LOGIC</title>
+    
+    <!-- Ultra Modern Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- 🔥 Security -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="firebase_config.js"></script>
+    <script>protectPage();</script>
+    <script src="theme_engine.js"></script>
+    <script src="lead_notifier.js"></script>
+
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            --primary-glow: rgba(139, 92, 246, 0.4);
+            --secondary: #06b6d4;
+            --bg: #030712;
+            --surface: rgba(15, 23, 42, 0.6);
+            --card-base: rgba(30, 41, 59, 0.3);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #ffffff;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        .bg-glow {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 40%),
+                        radial-gradient(circle at 90% 80%, rgba(244, 63, 94, 0.05) 0%, transparent 40%);
+            z-index: -1; pointer-events: none;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at top right, #1e1b4b, #030712);
+            color: var(--text);
+            min-height: 100vh;
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: 120px;
+        }
+
+        /* ✨ Animated Background Gradients */
+            <style>
+        :root {
+            --primary: #8b5cf6;
+            --primary-glow: rgba(139, 92, 246, 0.4);
+            --secondary: #06b6d4;
+            --bg: #030712;
+            --surface: rgba(15, 23, 42, 0.6);
+            --card-base: rgba(30, 41, 59, 0.3);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #ffffff;
+            --text-muted: #94a3b8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+        body { font-family:'Plus Jakarta Sans',sans-serif; background:radial-gradient(circle at top right,#1e1b4b,#030712); color:var(--text); min-height:100vh; padding-bottom:120px; }
+        .bg-glow {
+            position:fixed; top:0; left:0; right:0; bottom:0;
+            background:radial-gradient(circle at 10% 20%, rgba(99,102,241,0.05) 0%, transparent 40%),
+                        radial-gradient(circle at 90% 80%, rgba(244,63,94,0.05) 0%, transparent 40%);
+            z-index:-1; pointer-events:none;
+        }
+
+        /* 🏆 Header */
+        header {
+            position:sticky; top:0; z-index:1000;
+            background:rgba(3,7,18,0.7); backdrop-filter:blur(25px);
+            padding:calc(12px + env(safe-area-inset-top,0px)) 20px 14px;
+            border-bottom:1px solid var(--border);
+            display:flex; justify-content:space-between; align-items:center;
+        }
+        .header-logo { display:flex; align-items:center; gap:12px; }
+        .logo-box {
+            width:40px; height:40px; background:linear-gradient(135deg,#8b5cf6,#3b82f6);
+            border-radius:14px; display:flex; align-items:center; justify-content:center;
+            box-shadow:0 0 20px var(--primary-glow); flex-shrink:0;
+        }
+        .logo-box i { font-size:20px; color:white; }
+        .header-info h1 { font-size:17px; font-weight:800; letter-spacing:-0.5px; }
+        .header-info span { font-size:8px; text-transform:uppercase; color:#10b981; font-weight:800; letter-spacing:0.8px; }
+        .header-actions { display:flex; gap:8px; align-items:center; }
+        .header-btn {
+            width:36px; height:36px; border-radius:12px;
+            background:var(--card-base); border:1px solid var(--border);
+            color:var(--text-muted); font-size:14px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center; transition:0.2s;
+        }
+        .header-btn:active { transform:scale(0.9); }
+
+        /* 🕒 Top Bar */
+        .top-bar {
+            display:flex; align-items:center; gap:12px;
+            margin:10px 20px 0; padding:8px 14px;
+            background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.15); border-radius:14px;
+        }
+        .clock-icon-sm { width:32px; height:32px; border-radius:10px; background:linear-gradient(135deg,#8b5cf6,#06b6d4); display:flex; align-items:center; justify-content:center; font-size:14px; color:white; flex-shrink:0; }
+        .clock-time { font-size:17px; font-weight:800; font-family:'Outfit'; background:linear-gradient(135deg,#8b5cf6,#06b6d4); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .clock-date { font-size:9px; color:var(--text-muted); font-weight:600; -webkit-text-fill-color:var(--text-muted); }
+
+        /* 🔌 Gateway Mini */
+        .gateway-mini {
+            display:flex; align-items:center; gap:8px;
+            padding:6px 12px; border-radius:10px;
+            background:rgba(37,211,102,0.08); border:1px solid rgba(37,211,102,0.15);
+            margin:0 20px 8px; cursor:pointer; transition:0.2s;
+        }
+        .gateway-mini:active { transform:scale(0.97); }
+        .gateway-mini .dot { width:6px; height:6px; border-radius:50%; background:var(--success); flex-shrink:0; animation:pulse 2s infinite; }
+        .gateway-mini .label { font-size:9px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; }
+        .gateway-mini .status-text { font-size:10px; font-weight:600; }
+
+        /* 🔍 Search */
+        .search-area { margin:10px 20px 0; position:relative; }
+        .search-area i { position:absolute; left:18px; top:50%; transform:translateY(-50%); color:var(--primary); font-size:16px; }
+        .search-input {
+            width:100%; padding:14px 20px 14px 48px;
+            background:rgba(15,23,42,0.4); border:1px solid var(--border); border-radius:16px;
+            color:white; font-size:14px; outline:none; transition:0.3s;
+        }
+        .search-input:focus { border-color:var(--primary); box-shadow:0 0 20px rgba(139,92,246,0.12); background:rgba(15,23,42,0.7); }
+        .search-input::placeholder { color:#5a6480; font-size:12px; }
+
+        /* ⚠️ Alert Bars */
+        .alert-bar {
+            display:none; margin:10px 20px 0; padding:10px 16px; border-radius:14px;
+            align-items:center; gap:10px; font-size:12px; font-weight:600; animation:slideDown 0.4s ease-out;
+        }
+        .alert-bar.followup { background:linear-gradient(135deg,#f59e0b,#ea580c); color:white; }
+        .alert-bar.followup a { background:white; color:#ea580c; padding:6px 14px; border-radius:8px; font-size:10px; font-weight:800; text-decoration:none; white-space:nowrap; margin-left:auto; }
+        .alert-bar.stock { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.25); color:var(--danger); }
+        @keyframes slideDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes pulse { 0%,100% { opacity:0.5; } 50% { opacity:1; } }
+
+        .container { max-width:480px; margin:0 auto; padding:16px 20px; }
+
+        /* 📊 KPI Row */
+        .kpi-row { display:flex; gap:10px; margin-bottom:24px; }
+        .kpi-item { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:2px; }
+        .kpi-label { font-size:9px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.8px; }
+        .kpi-value { font-size:18px; font-weight:800; font-family:'Outfit'; }
+
+        /* 🌐 Sections */
+        .section { margin-bottom:22px; }
+        .section-title {
+            font-size:10px; font-weight:800; color:var(--text-muted);
+            text-transform:uppercase; letter-spacing:1.5px;
+            margin-bottom:12px; display:flex; align-items:center; gap:8px;
+        }
+        .section-title i { color:var(--primary); font-size:11px; }
+        .section-title::after { content:''; flex:1; height:1px; background:linear-gradient(to right,var(--border),transparent); }
+
+        /* 📱 App Grid */
+        .app-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px 8px; }
+        .app-card { text-decoration:none; display:flex; flex-direction:column; align-items:center; gap:10px; padding:8px 4px; border-radius:16px; transition:all 0.25s ease; }
+        .app-card:active { transform:scale(0.92); }
+        .icon-circle {
+            width:54px; height:54px; border-radius:16px;
+            display:flex; align-items:center; justify-content:center;
+            font-size:20px; color:white; border:1px solid rgba(255,255,255,0.12);
+            box-shadow:0 6px 14px rgba(0,0,0,0.3); transition:all 0.3s ease;
+        }
+        .app-card:hover .icon-circle { transform:translateY(-4px) scale(1.03); box-shadow:0 12px 28px rgba(0,0,0,0.5); }
+        .icon-circle i { filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
+        .app-label {
+            font-size:9.5px; font-weight:700; color:var(--text-muted);
+            text-align:center; line-height:1.2; height:2.2em;
+            display:flex; align-items:center; justify-content:center; width:100%;
+        }
+
+        .badge-num {
+            position:absolute; top:-6px; right:-6px; min-width:20px; height:20px;
+            background:var(--danger); border:2px solid var(--bg); border-radius:50%;
+            font-size:9px; font-weight:800; color:white; display:flex; align-items:center; justify-content:center;
+            box-shadow:0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        /* Gradients */
+        .g-sale { background:linear-gradient(135deg,#6366f1,#4f46e5); }
+        .g-quote { background:linear-gradient(135deg,#0ea5e9,#2563eb); }
+        .g-scan { background:linear-gradient(135deg,#f59e0b,#d97706); }
+        .g-ren { background:linear-gradient(135deg,#ec4899,#d946ef); }
+        .g-stock { background:linear-gradient(135deg,#10b981,#059669); }
+        .g-meta { background:linear-gradient(135deg,#1877F2,#0056b3); }
+        .g-appt { background:linear-gradient(135deg,#8b5cf6,#6366f1); }
+        .g-partner { background:linear-gradient(135deg,#8b5cf6,#7c3aed); }
+        .g-reports { background:linear-gradient(135deg,#06b6d4,#0891b2); }
+        .g-db { background:linear-gradient(135deg,#64748b,#475569); }
+        .g-danger { background:linear-gradient(135deg,#f43f5e,#dc2626); }
+        .g-green { background:linear-gradient(135deg,#10b981,#059669); }
+        .g-gold { background:linear-gradient(135deg,#f59e0b,#d97706); }
+        .g-teal { background:linear-gradient(135deg,#06b6d4,#14b8a6); }
+        .g-pink { background:linear-gradient(135deg,#f472b6,#db2777); }
+        .g-dark { background:#1e293b; }
+        .g-purple { background:linear-gradient(135deg,#8b5cf6,#6366f1); }
+        .g-red { background:linear-gradient(135deg,#ef4444,#f97316); }
+        .g-blue { background:linear-gradient(135deg,#2563eb,#0ea5e9); }
+        .g-green2 { background:linear-gradient(135deg,#16a34a,#22c55e); }
+        .g-deepurple { background:linear-gradient(135deg,#6d28d9,#4c1d95); }
+        .g-cyan { background:linear-gradient(135deg,#0891b2,#06b6d4); }
+
+        /* 🧭 Dock */
+        .nav-dock {
+            position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+            width:92%; max-width:400px; height:72px;
+            background:rgba(15,23,42,0.88); backdrop-filter:blur(30px);
+            border:1px solid var(--border); border-radius:30px;
+            display:flex; justify-content:space-around; align-items:center;
+            z-index:5000; box-shadow:0 30px 60px rgba(0,0,0,0.8);
+        }
+        .nav-item { display:flex; flex-direction:column; align-items:center; gap:3px; text-decoration:none; color:var(--text-muted); transition:0.2s; }
+        .nav-item.active { color:var(--primary); }
+        .nav-item i { font-size:20px; transition:0.2s; }
+        .nav-item:active i { transform:translateY(-3px); }
+        .nav-item span { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
+
+        @media (max-width:640px) {
+            header { padding:calc(10px+env(safe-area-inset-top,0px)) 16px 12px; }
+            .container { padding:12px 16px; }
+            .app-grid { gap:10px 6px; }
+            .icon-circle { width:48px; height:48px; font-size:18px; border-radius:14px; }
+            .app-label { font-size:9px; height:2em; }
+            .kpi-value { font-size:16px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-glow"></div>
+
+<!-- 🏆 HEADER -->
+<header>
+    <div class="header-logo">
+        <div class="logo-box"><i class="fa-solid fa-bolt-lightning"></i></div>
+        <div class="header-info">
+            <h1>SUPREME CONSOLE</h1>
+            <span>ONLINE</span>
+        </div>
+    </div>
+    <div class="header-actions">
+        <button class="header-btn" onclick="toggleTheme()" title="Theme"><i class="fa-solid fa-palette"></i></button>
+        <button class="header-btn" onclick="firebase.auth().signOut()" title="Logout"><i class="fa-solid fa-power-off"></i></button>
+    </div>
+</header>
+
+<!-- 🕒 Top Bar: Clock -->
+<div class="top-bar">
+    <div class="clock-icon-sm"><i class="fa-solid fa-clock"></i></div>
+    <div style="flex:1; min-width:0;">
+        <div class="clock-time" id="liveClockTime">--:--:--</div>
+        <div class="clock-date" id="liveClockDate">---, -- --- ----</div>
+    </div>
+</div>
+
+<!-- 🔌 WhatsApp Gateway Mini -->
+<div class="gateway-mini" onclick="window.open('http://localhost:3000','_blank')">
+    <span class="dot" id="gwDot"></span>
+    <span class="label">WhatsApp</span>
+    <span class="status-text" id="gwStatusText">Checking...</span>
+    <i class="fa-solid fa-chevron-right" style="margin-left:auto;font-size:10px;color:var(--text-muted);"></i>
+</div>
+
+<!-- 🔍 AI Search -->
+<div class="search-area">
+    <i class="fa-solid fa-robot"></i>
+    <input type="text" class="search-input" id="aiQuery" placeholder="Ask AI: IMEI, vehicle, sale, stock, customer..." onkeypress="if(event.key=='Enter') window.location.href='ai_chat.php?q='+encodeURIComponent(this.value)">
+</div>
+
+<!-- ⚠️ Alert: Followup -->
+<div id="followupAlert" class="alert-bar followup">
+    <i class="fa-solid fa-hand-holding-dollar"></i>
+    <span id="followupAlertText">Pending payments today!</span>
+    <a href="payment_followup.php">VIEW</a>
+</div>
+
+<!-- ⚠️ Alert: Low Stock -->
+<div id="stockAlert" class="alert-bar stock">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <span>LOW STOCK WARNING</span>
+</div>
+
+<div class="container">
+
+    <!-- 📊 KPI Cards -->
+    <div class="kpi-row">
+        <div class="kpi-item">
+            <div class="kpi-label">Today Sales</div>
+            <div class="kpi-value" id="kpiSales">₹0</div>
+        </div>
+        <div class="kpi-item">
+            <div class="kpi-label">Month Profit</div>
+            <div class="kpi-value" id="kpiProfit">₹0</div>
+        </div>
+        <div class="kpi-item">
+            <div class="kpi-label">In Stock</div>
+            <div class="kpi-value" id="kpiStock">0</div>
+        </div>
+    </div>
+
+    <!-- 1️⃣ SALES & BILLING -->
+    <div class="section">
+        <div class="section-title"><i class="fa-solid fa-cart-shopping"></i> Sales & Billing</div>
+        <div class="app-grid">
+            <a href="sales_entry.php" class="app-card">
+                <div class="icon-circle g-sale"><i class="fa-solid fa-cart-plus"></i></div>
+                <span class="app-label">New Sale</span>
+            </a>
+            <a href="quotation_entry.php" class="app-card">
+                <div class="icon-circle g-quote"><i class="fa-solid fa-file-invoice-dollar"></i></div>
+                <span class="app-label">Quotation</span>
+            </a>
+            <a href="sales_invoice_search.php" class="app-card">
+                <div class="icon-circle g-danger"><i class="fa-solid fa-file-invoice"></i></div>
+                <span class="app-label">Sales Bills</span>
+            </a>
+            <a href="renewal_invoice_search.php" class="app-card">
+                <div class="icon-circle g-purple"><i class="fa-solid fa-receipt"></i></div>
+                <span class="app-label">Renewal Bills</span>
+            </a>
+            <a href="dealer_invoice_search.php" class="app-card">
+                <div class="icon-circle g-teal"><i class="fa-solid fa-file-signature"></i></div>
+                <span class="app-label">Dealer Inv</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 2️⃣ INVENTORY -->
+    <div class="section">
+        <div class="section-title"><i class="fa-solid fa-warehouse"></i> Inventory</div>
+        <div class="app-grid">
+            <a href="inventory_scanner.php" class="app-card">
+                <div class="icon-circle g-scan"><i class="fa-solid fa-barcode"></i></div>
+                <span class="app-label">Scan Stock</span>
+            </a>
+            <a href="live_stock.php" class="app-card">
+                <div class="icon-circle g-stock"><i class="fa-solid fa-warehouse"></i></div>
+                <span class="app-label">Stock View</span>
+            </a>
+            <a href="stock_transfer.php" class="app-card">
+                <div class="icon-circle g-purple"><i class="fa-solid fa-arrows-left-right"></i></div>
+                <span class="app-label">Transfer</span>
+            </a>
+            <a href="master_device.php" class="app-card">
+                <div class="icon-circle g-dark"><i class="fa-solid fa-microchip"></i></div>
+                <span class="app-label">Device+</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 3️⃣ CUSTOMERS & SERVICE -->
+    <div class="section">
+        <div class="section-title"><i class="fa-solid fa-users"></i> Customers & Service</div>
+        <div class="app-grid">
+            <a href="renewal_entry.php" class="app-card">
+                <div class="icon-circle g-ren"><i class="fa-solid fa-calendar-plus"></i></div>
+                <span class="app-label">Renewal</span>
+            </a>
+            <a href="appointment_manager.php" class="app-card">
+                <div class="icon-circle g-appt"><i class="fa-solid fa-calendar-check"></i></div>
+                <span class="app-label">Appointment</span>
+            </a>
+            <a href="payment_followup.php" class="app-card" style="position:relative;">
+                <div class="icon-circle g-gold">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span id="followupBadge" class="badge-num" style="display:none;">0</span>
+                </div>
+                <span class="app-label">Pay Followup</span>
+            </a>
+            <a href="crm_manager.php" class="app-card">
+                <div class="icon-circle g-gold"><i class="fa-solid fa-users-viewfinder"></i></div>
+                <span class="app-label">CRM</span>
+            </a>
+            <a href="device_return_manager.php" class="app-card">
+                <div class="icon-circle g-danger"><i class="fa-solid fa-rotate-left"></i></div>
+                <span class="app-label">Returns</span>
+            </a>
+            <a href="payment_manager.php" class="app-card">
+                <div class="icon-circle g-green"><i class="fa-solid fa-credit-card"></i></div>
+                <span class="app-label">Payments</span>
+            </a>
+            <a href="meta_leads.php" class="app-card">
+                <div class="icon-circle g-meta"><i class="fa-brands fa-facebook"></i></div>
+                <span class="app-label">Meta Leads</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 4️⃣ FINANCE & ADMIN -->
+    <div class="section">
+        <div class="section-title"><i class="fa-solid fa-building-columns"></i> Finance & Admin</div>
+        <div class="app-grid">
+            <a href="fin_assets.php" class="app-card">
+                <div class="icon-circle" style="background:linear-gradient(135deg,#059669,#34d399)"><i class="fa-solid fa-vault"></i></div>
+                <span class="app-label">Bank & Assets</span>
+            </a>
+            <a href="office_settlement.php" class="app-card">
+                <div class="icon-circle" style="background:linear-gradient(135deg,#3b82f6,#2563eb)"><i class="fa-solid fa-building-columns"></i></div>
+                <span class="app-label">Office</span>
+            </a>
+            <a href="expense_manager.php" class="app-card">
+                <div class="icon-circle g-danger"><i class="fa-solid fa-money-bill-transfer"></i></div>
+                <span class="app-label">Financials</span>
+            </a>
+            <a href="sim_settlement.php" class="app-card">
+                <div class="icon-circle g-red"><i class="fa-solid fa-tower-cell"></i></div>
+                <span class="app-label">SIM Dues</span>
+            </a>
+            <a href="renewal_dashboard.php" class="app-card">
+                <div class="icon-circle g-ren"><i class="fa-solid fa-bell"></i></div>
+                <span class="app-label">Due Alerts</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 5️⃣ PARTNERS -->
+    <div class="section">
+        <div class="section-title"><i class="fa-solid fa-handshake"></i> Partners</div>
+        <div class="app-grid">
+            <a href="dealer_manager.php" class="app-card">
+                <div class="icon-circle g-partner"><i class="fa-solid fa-users-gear"></i></div>
+                <span class="app-label">Partners</span>
+            </a>
+            <a href="master_dealer.php" class="app-card">
+                <div class="icon-circle g-pink"><i class="fa-solid fa-user-tie"></i></div>
+                <span class="app-label">Master Dealer</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 6️⃣ SYSTEM -->
+    <div class="section">
+        <div class="section-title"><i class="fa-solid fa-server"></i> System</div>
+        <div class="app-grid">
+            <a href="master_software.php" class="app-card">
+                <div class="icon-circle g-dark"><i class="fa-solid fa-code"></i></div>
+                <span class="app-label">Software+</span>
+            </a>
+            <a href="master_device.php?tab=TOOL" class="app-card">
+                <div class="icon-circle g-dark"><i class="fa-solid fa-screwdriver-wrench"></i></div>
+                <span class="app-label">Tool+</span>
+            </a>
+            <a href="hostinger_manager.php" class="app-card">
+                <div class="icon-circle g-deepurple"><i class="fa-solid fa-cloud-bolt"></i></div>
+                <span class="app-label">Hostinger</span>
+            </a>
+            <a href="report_center.php" class="app-card">
+                <div class="icon-circle g-reports"><i class="fa-solid fa-file-excel"></i></div>
+                <span class="app-label">Reports</span>
+            </a>
+            <a href="data_explorer.php" class="app-card">
+                <div class="icon-circle g-db"><i class="fa-solid fa-database"></i></div>
+                <span class="app-label">Raw DB</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- 7️⃣ TRACKING PORTALS -->
+    <div class="section">
+        <div class="section-title"><i class="fa-solid fa-globe"></i> Tracking Portals</div>
+        <div class="app-grid">
+            <a href="https://www.airtel.in/m2m/#/" class="app-card" target="_blank">
+                <div class="icon-circle g-red"><i class="fa-solid fa-satellite-dish"></i></div>
+                <span class="app-label">Airtel M2M</span>
+            </a>
+            <a href="https://navilap.com/gps/login" class="app-card" target="_blank">
+                <div class="icon-circle g-blue"><i class="fa-solid fa-location-dot"></i></div>
+                <span class="app-label">Navilap</span>
+            </a>
+            <a href="https://dotrack.in/login/login.html" class="app-card" target="_blank">
+                <div class="icon-circle g-green2"><i class="fa-solid fa-route"></i></div>
+                <span class="app-label">Do Track</span>
+            </a>
+        </div>
+    </div>
+
+</div>
+
+    <!-- 🧭 Floating Navigation -->
+    <nav class="nav-dock">
+        <a href="index.html" class="nav-item active"><i class="fa-solid fa-house"></i><span>Home</span></a>
+        <a href="sales_entry.php" class="nav-item"><i class="fa-solid fa-plus"></i><span>Sale</span></a>
+        <a href="reports.php" class="nav-item"><i class="fa-solid fa-chart-simple"></i><span>Charts</span></a>
+        <a href="ai_chat.php" class="nav-item"><i class="fa-solid fa-robot"></i><span>AI</span></a>
+    </nav>
+
+
+    <script>
+        function setGatewayStatus(kind, label, detail, iconClass) {
+            const badge = document.getElementById('gatewayStatusBadge');
+            const detailNode = document.getElementById('gatewayStatusDetail');
+            if (!badge || !detailNode) return;
+
+            badge.className = `gateway-status-badge ${kind}`;
+            badge.innerHTML = `<i class="${iconClass}"></i> ${label}`;
+            detailNode.textContent = detail;
+        }
+
+        async function checkLocalGatewayDirect() {
+            try {
+                const res = await fetch('http://localhost:3000/status', { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            } catch (err) {
+                return null;
+            }
+        }
+
+        async function checkGatewayStatus() {
+            try {
+                const res = await fetch('api_whatsapp_status.php', { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const data = await res.json();
+                const status = String(data.status || '').toUpperCase();
+                const lastEvent = data.lastEvent ? ` | ${data.lastEvent}` : '';
+
+                if (status === 'READY') {
+                    setGatewayStatus('is-ready', 'Connected', `Server linked and ready to send${lastEvent}`, 'fa-solid fa-circle-check');
+                } else if (status === 'LOCAL_ONLY') {
+                    setGatewayStatus('is-warning', 'Local PC Only', 'Gateway is configured as localhost, so mobile cannot verify it through the domain', 'fa-solid fa-laptop');
+                } else if (status === 'QR_READY') {
+                    setGatewayStatus('is-warning', 'Scan Required', `QR ready. Link WhatsApp device to continue${lastEvent}`, 'fa-solid fa-qrcode');
+                } else if (status === 'CONNECTING' || status === 'INITIALIZING') {
+                    setGatewayStatus('is-warning', 'Starting', `Gateway is booting now${lastEvent}`, 'fa-solid fa-spinner fa-spin');
+                } else {
+                    const localStatus = await checkLocalGatewayDirect();
+                    if (localStatus && String(localStatus.status || '').toUpperCase() === 'READY') {
+                        setGatewayStatus('is-ready', 'Connected on This PC', 'Public gateway URL is down, but this system local gateway is ready', 'fa-solid fa-laptop');
+                        return;
+                    }
+                    const errorText = data.lastError ? ` | ${data.lastError}` : '';
+                    setGatewayStatus('is-danger', status || 'Unavailable', `Gateway needs attention${lastEvent}${errorText}`, 'fa-solid fa-triangle-exclamation');
+                }
+            } catch (err) {
+                const localStatus = await checkLocalGatewayDirect();
+                if (localStatus && String(localStatus.status || '').toUpperCase() === 'READY') {
+                    setGatewayStatus('is-ready', 'Connected on This PC', 'Domain status failed, but this system local gateway is ready', 'fa-solid fa-laptop');
+                    return;
+                }
+                setGatewayStatus('is-danger', 'Offline', 'Gateway not reachable from domain or this system', 'fa-solid fa-plug-circle-xmark');
+            }
+        }
+
+        function openGatewayPanel() {
+            window.open('http://localhost:3000', '_blank');
+        }
+
+        // 🕒 Live Clock Update Function
+        function updateLiveClock() {
+            const now = new Date();
+            const timeEl = document.getElementById('liveClockTime');
+            const dateEl = document.getElementById('liveClockDate');
+            if (!timeEl || !dateEl) return;
+
+            // Time formatting (HH:MM:SS with AM/PM)
+            let h = now.getHours();
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            h = h % 12 || 12;
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            timeEl.textContent = `${h}:${m}:${s} ${ampm}`;
+
+            // Date formatting
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const dayName = days[now.getDay()];
+            const day = now.getDate();
+            const month = months[now.getMonth()];
+            const year = now.getFullYear();
+            dateEl.textContent = `${dayName}, ${day} ${month} ${year}`;
+        }
+
+        async function fetchStats() {
+            try {
+                // Feature 7: Stock Alert
+                fetch('api_master_data.php?action=get_stock_count')
+                .then(r => r.json())
+                .then(stock => {
+                    if(stock.total < 5) document.getElementById('stockAlert').style.display='flex';
+                });
+                // Follow-up Alert & Notification System
+                const checkFollowups = () => {
+                    fetch('api_followup.php?action=list&filter=today')
+                    .then(r => r.json())
+                    .then(list => {
+                        const badge = document.getElementById('followupBadge');
+                        const alertBar = document.getElementById('followupAlert');
+                        const alertText = document.getElementById('followupAlertText');
+
+                        if (list.length > 0) {
+                            badge.innerText = list.length;
+                            badge.style.display = 'flex';
+                            
+                            alertText.innerText = `You have ${list.length} collections scheduled for today.`;
+                            alertBar.style.display = 'flex';
+
+                            // Trigger Browser Notification
+                            if (Notification.permission === "granted") {
+                                new Notification("💰 Payment Reminder", {
+                                    body: `You have ${list.length} pending payments to follow up today!`,
+                                    icon: "https://cdn-icons-png.flaticon.com/512/2489/2489756.png"
+                                });
+                            }
+
+                            // 📱 Trigger Native Android Push (FCM)
+                            const fcmFd = new FormData();
+                            fcmFd.append('title', '💰 Payment Follow-up');
+                            fcmFd.append('body', `You have ${list.length} collections due today. Please check the app.`);
+                            fetch('api_fcm.php?action=send_notifications', { method: 'POST', body: fcmFd });
+
+                        } else {
+                            badge.style.display = 'none';
+                            alertBar.style.display = 'none';
+                        }
+                    });
+                };
+
+                // Request Notification Permission
+                if (Notification.permission !== "denied") {
+                    Notification.requestPermission();
+                }
+
+                checkFollowups();
+                setInterval(checkFollowups, 30 * 60 * 1000); // Every 30 mins
+            } catch(e) {}
+        }
+
+        window.onload = function() {
+            fetchStats();
+            updateLiveClock();
+            setInterval(updateLiveClock, 1000); // Update clock every second
+        };
+        checkGatewayStatus();
+        setInterval(checkGatewayStatus, 15000);
+
+        // Vibrate on touch
+        document.querySelectorAll('a').forEach(lnk => {
+            lnk.onmousedown = () => { if(window.navigator.vibrate) window.navigator.vibrate(12); };
+        });
+    </script>
+</body>
+</html>
