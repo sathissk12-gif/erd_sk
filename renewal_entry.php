@@ -223,6 +223,24 @@
             <i class="fa-solid fa-cloud-arrow-up"></i> Update Renewal
         </button>
 
+        <!-- ➡️ Next Cycle Info (shown after update) -->
+        <div id="nextCyclePanel" class="glass-card" style="display:none;">
+            <div class="section-label"><i class="fa-solid fa-calendar-week"></i> Next Cycle (Auto-Created)</div>
+            <div class="expiry-grid">
+                <div class="expiry-item">
+                    <span>Start Date</span>
+                    <strong id="nextCycleFrom" style="color:#22d3ee;">-</strong>
+                </div>
+                <div class="expiry-item">
+                    <span>Expiry Date</span>
+                    <strong id="nextCycleTo" style="color:#4ade80;">-</strong>
+                </div>
+            </div>
+            <div style="margin-top:10px; background:rgba(255,255,255,0.03); border-radius:12px; padding:10px 14px; text-align:center;">
+                <span style="font-size:10px; font-weight:800; color:var(--text-muted); text-transform:uppercase;">⏰ Renewal Due in Next Cycle</span>
+            </div>
+        </div>
+
         <div id="postSave">
             <div class="glass-card" style="text-align: center; border-color: var(--success); background: rgba(16, 185, 129, 0.05);">
                 <span style="font-size: 12px; font-weight: 800; color: var(--success);">SUCCESS: INVOICE READY</span>
@@ -458,6 +476,13 @@
                     document.getElementById('rid').value = r.id || '';
                     notify("Renewal Updated! Invoice No: " + r.invoice_no, false);
                     if(r.invoice_no) document.getElementById('postSave').style.display='block';
+                    
+                    // Show next cycle info
+                    if (r.next_valid_from || r.next_valid_to) {
+                        document.getElementById('nextCycleFrom').innerText = formatRenewalDate(r.next_valid_from);
+                        document.getElementById('nextCycleTo').innerText = formatRenewalDate(r.next_valid_to);
+                        document.getElementById('nextCyclePanel').style.display = 'block';
+                    }
                 } else { 
                     notify("Update Failed: " + (r.message || ""), true); 
                 }

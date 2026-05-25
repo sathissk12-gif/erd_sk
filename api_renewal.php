@@ -269,8 +269,8 @@ if ($action === 'update') {
 
             // 🔄 CREATE NEXT YEAR RENEWAL ENTRY AUTOMATICALLY
             $nextUid = substr(md5(uniqid(mt_rand(), true)), 0, 12);
-            $nextValidFrom = date('Y-m-d', strtotime('+1 year'));
-            $nextValidTo = date('Y-m-d', strtotime('+2 years'));
+            $nextValidFrom = date('Y-m-d'); // today
+            $nextValidTo = date('Y-m-d', strtotime('+1 year')); // today + 1 year
             
             $nextData = [
                 $nameCol => $customerName,
@@ -306,7 +306,7 @@ if ($action === 'update') {
         }
 
         $conn->commit();
-        echo json_encode(['success' => true, 'uid' => $uid, 'invoice_no' => $invNo, 'profit' => $profit, 'id' => $id]);
+        echo json_encode(['success' => true, 'uid' => $uid, 'invoice_no' => $invNo, 'profit' => $profit, 'id' => $id, 'next_valid_from' => $nextValidFrom, 'next_valid_to' => $nextValidTo]);
     } catch (Exception $e) {
         if ($conn->inTransaction()) $conn->rollBack();
         echo json_encode(['success' => false, 'message' => $e->getMessage()]);
