@@ -214,6 +214,36 @@ function syncRenewalFromSale($conn, $sale, $duration) {
         $sql = "INSERT INTO `$tableName` (`" . implode('`, `', $cols) . "`) VALUES ($placeholders)";
         $conn->prepare($sql)->execute(array_values($data));
     }
+
+    // 🔄 CREATE NEXT YEAR RENEWAL ENTRY automatically (same as api_renewal.php)
+    $nextUid = substr(md5(uniqid(mt_rand(), true)), 0, 12);
+    $nextData = [
+        $nCol => $sale['customer_name'],
+        $mCol => $sale['mobile_number'] ?? $sale['mobile_no'] ?? '',
+        $vCol => $vehicle,
+        $sCol => $sale['software'],
+        'amount' => getRenewalPrice($sale['software']),
+        'location' => $sale['location'],
+        'status' => 'PENDING',
+        'uid' => $nextUid,
+        'date' => date('Y-m-d')
+    ];
+    
+    if (in_array('imei', $allCols) && isset($sale['imei'])) $nextData['imei'] = $sale['imei'];
+    if (in_array('valid_from', $allCols)) $nextData['valid_from'] = date('Y-m-d');
+    if (in_array('valid_to', $allCols)) $nextData['valid_to'] = date('Y-m-d', strtotime('+1 year'));
+    if (in_array('processed', $allCols)) $nextData['processed'] = 'NO';
+    
+    // Avoid duplicate future entry
+    $checkNext = $conn->prepare("SELECT id FROM `$tableName` WHERE `$vCol` = ? AND status = 'PENDING' AND valid_from = ? LIMIT 1");
+    $checkNext->execute([$vehicle, date('Y-m-d')]);
+    
+    if (!$checkNext->fetch()) {
+        $nCols = array_keys($nextData);
+        $nQuoted = implode(', ', array_map(fn($c) => "`$c`", $nCols));
+        $nPlace = implode(', ', array_fill(0, count($nCols), '?'));
+        $conn->prepare("INSERT INTO `$tableName` ($nQuoted) VALUES ($nPlace)")->execute(array_values($nextData));
+    }
 }
 
 function calculateExpiryDate($duration) {
