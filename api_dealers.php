@@ -52,25 +52,10 @@ try {
             }
 
             $db_imei = $target['imei'] ?: $imei;
-            $conn->beginTransaction();
 
-            // 1. Update ERD Device
-            $stUpd = $conn->prepare("UPDATE device_master SET holder = ?, status = 'SOLD', software = ?, sim_no = ?, issue_date = ?, rate = ? WHERE imei = ?");
-            $stUpd->execute([$dealer, $software, $sim_no, $date, $selling_rate, $db_imei]);
-
-            // 2. Add to ERD Ledger (Active)
-            $stLedger = $conn->prepare("INSERT INTO dealer_ledger (dealer_name, imei, software, sim_no, date, selling_price, profit, office) VALUES (?, ?, ?, ?, ?, ?, 0, 'Erode')");
-            $stLedger->execute([$dealer, $db_imei, $software, $sim_no, $date, $selling_rate]);
-
-            // 3. Add to ERD Ledger (Old Table)
-            try {
-                $stLedgerOld = $conn->prepare("INSERT INTO dealer_ledger_old_1778788199 (dealer_name, imei, date, selling_price, profit, actual_rate) VALUES (?, ?, ?, ?, 0, 0)");
-                $stLedgerOld->execute([$dealer, $db_imei, $date, $selling_rate]);
-            } catch(Exception $exLedger) {
-                // Keep moving if table does not exist
-            }
-
-            $conn->commit();
+            // Add to ERD Ledger (Old Table only)
+            $stLedgerOld = $conn->prepare("INSERT INTO dealer_ledger_old_1778788199 (dealer_name, imei, date, selling_price, profit, actual_rate) VALUES (?, ?, ?, ?, 0, 0)");
+            $stLedgerOld->execute([$dealer, $db_imei, $date, $selling_rate]);
             echo json_encode(['status' => 'success', 'message' => "SUCCESS: $imei Issued in ERD!"]);
             break;
 
@@ -80,34 +65,17 @@ try {
 
         case 'pending':
             try {
-                // Query 1: Active Ledger
                 $st = $conn->query("
-                    SELECT d.dealer_name as holder, d.imei, m.device_model as model 
-                    FROM dealer_ledger d 
-                    LEFT JOIN device_master m ON REPLACE(REPLACE(d.imei, ' ', ''), '-', '') = REPLACE(REPLACE(m.imei, ' ', ''), '-', '') 
-                    WHERE (d.txn_id IS NULL OR d.txn_id = '') 
+                    SELECT d.dealer_name as holder, d.imei, m.device_model as model
+                    FROM dealer_ledger_old_1778788199 d
+                    LEFT JOIN device_master m ON REPLACE(REPLACE(d.imei, ' ', ''), '-', '') = REPLACE(REPLACE(m.imei, ' ', ''), '-', '')
+                    WHERE (d.txn_id IS NULL OR d.txn_id = '')
                     AND d.imei != 'PAYMENT'
                 ");
                 $pending = $st->fetchAll(PDO::FETCH_ASSOC);
-
-                // Query 2: Old Ledger
-                try {
-                    $st2 = $conn->query("
-                        SELECT d.dealer_name as holder, d.imei, m.device_model as model 
-                        FROM dealer_ledger_old_1778788199 d 
-                        LEFT JOIN device_master m ON REPLACE(REPLACE(d.imei, ' ', ''), '-', '') = REPLACE(REPLACE(m.imei, ' ', ''), '-', '') 
-                        WHERE (d.txn_id IS NULL OR d.txn_id = '') 
-                        AND d.imei != 'PAYMENT'
-                    ");
-                    $old_pending = $st2->fetchAll(PDO::FETCH_ASSOC);
-                    $pending = array_merge($pending, $old_pending);
-                } catch(Exception $e2) {
-                    // Ignore if old table does not exist
-                }
-
                 echo json_encode($pending);
-            } catch(Exception $e) { 
-                echo json_encode([]); 
+            } catch(Exception $e) {
+                echo json_encode([]);
             }
             break;
 
@@ -118,19 +86,8 @@ try {
                 $sale_rate = (float)($_REQUEST['sale_rate'] ?? 0);
                 
                 try {
-                    $conn->beginTransaction();
-
-                    // Update Active Ledger
-                    $stmt = $conn->prepare("UPDATE dealer_ledger SET txn_id = ?, selling_price = ? WHERE imei = ? AND imei != 'PAYMENT'");
-                    $stmt->execute([$txn, $sale_rate, $imei]);
-                    
-                    // Update Old Ledger
-                    try {
-                        $stmtOld = $conn->prepare("UPDATE dealer_ledger_old_1778788199 SET txn_id = ?, selling_price = ? WHERE imei = ? AND imei != 'PAYMENT'");
-                        $stmtOld->execute([$txn, $sale_rate, $imei]);
-                    } catch(Exception $exOld) {}
-
-                    $conn->commit();
+                    $stmtOld = $conn->prepare("UPDATE dealer_ledger_old_1778788199 SET txn_id = ?, selling_price = ? WHERE imei = ? AND imei != 'PAYMENT'");
+                    $stmtOld->execute([$txn, $sale_rate, $imei]);
                     
                     echo json_encode([
                         'status' => 'success',
@@ -138,9 +95,8 @@ try {
                         'txn' => $txn,
                         'updated_columns' => ['txn_id', 'selling_price']
                     ]);
-                } catch(Exception $e) { 
-                    if ($conn->inTransaction()) $conn->rollBack();
-                    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]); 
+                } catch(Exception $e) {
+                    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
                 }
             } else {
                 $dealer = trim($_REQUEST['dealer'] ?? '');
@@ -149,22 +105,12 @@ try {
                 $remark = $_REQUEST['remark'] ?? 'Payment';
                 $date = date('Y-m-d');
                 try {
-                    $conn->beginTransaction();
-
-                    $stmtL = $conn->prepare("INSERT INTO dealer_ledger (dealer_name, imei, software, sim_no, date, selling_price, profit, office, txn_id) VALUES (?, 'PAYMENT', ?, ?, ?, ?, 0, 'Erode', ?)");
-                    $stmtL->execute([$dealer, $mode, $remark, $date, $amount, 'PAY-' . time()]);
-
-                    // Add to Old Table
-                    try {
-                        $stmtLOld = $conn->prepare("INSERT INTO dealer_ledger_old_1778788199 (dealer_name, imei, date, selling_price, profit, actual_rate, txn_id) VALUES (?, 'PAYMENT', ?, ?, 0, 0, ?)");
-                        $stmtLOld->execute([$dealer, $date, $amount, 'PAY-' . time()]);
-                    } catch(Exception $exLOld) {}
-
-                    $conn->commit();
+                    $stmtLOld = $conn->prepare("INSERT INTO dealer_ledger_old_1778788199 (dealer_name, imei, date, selling_price, profit, actual_rate, txn_id) VALUES (?, 'PAYMENT', ?, ?, 0, 0, ?)");
+                    $stmtLOld->execute([$dealer, $date, $amount, 'PAY-' . time()]);
+                    
                     echo json_encode(['status' => 'success', 'message' => 'Payment Recorded']);
-                } catch(Exception $e) { 
-                    if ($conn->inTransaction()) $conn->rollBack();
-                    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]); 
+                } catch(Exception $e) {
+                    echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
                 }
             }
             break;
