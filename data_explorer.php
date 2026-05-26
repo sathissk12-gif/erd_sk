@@ -981,12 +981,17 @@
 
         function escapeHtml(value) {
             if (value === null || value === undefined) return '';
+            var amp = '&' + 'amp;';
+            var lt = '&' + 'lt;';
+            var gt = '&' + 'gt;';
+            var quot = '&' + 'quot;';
+            var apos = '&#' + '39;';
             return String(value)
-                .replace(/&/g, '&')
-                .replace(/</g, '<')
-                .replace(/>/g, '>')
-                .replace(/"/g, '"')
-                .replace(/'/g, ''');
+                .replace(/&/g, amp)
+                .replace(/</g, lt)
+                .replace(/>/g, gt)
+                .replace(/"/g, quot)
+                .replace(/'/g, apos);
         }
 
         function getSortIcon(column) {

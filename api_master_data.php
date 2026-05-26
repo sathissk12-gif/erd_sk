@@ -221,6 +221,28 @@ switch($action) {
         } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
         break;
 
+    case 'save_full_row':
+        $table = $_POST['table'] ?? '';
+        if (!$table) { echo json_encode(['status' => 'error', 'error' => 'Table required']); exit; }
+        try {
+            // Get all form fields except action and table
+            $fields = $_POST;
+            unset($fields['action'], $fields['table']);
+            
+            if (empty($fields)) { echo json_encode(['status' => 'error', 'error' => 'No data provided']); exit; }
+            
+            $cols = array_keys($fields);
+            $vals = array_values($fields);
+            $placeholders = implode(',', array_fill(0, count($cols), '?'));
+            $colList = '`' . implode('`, `', $cols) . '`';
+            
+            $stmt = $conn->prepare("INSERT INTO `$table` ($colList) VALUES ($placeholders)");
+            $stmt->execute($vals);
+            
+            echo json_encode(['status' => 'success', 'id' => $conn->lastInsertId()]);
+        } catch (Exception $e) { echo json_encode(['status' => 'error', 'error' => $e->getMessage()]); }
+        break;
+
     case 'delete_row':
         $table = $_POST['table'] ?? '';
         $ids = $_POST['ids'] ?? '';
