@@ -102,16 +102,33 @@ if (basename($_SERVER['PHP_SELF']) === 'api_whatsapp_send.php') {
         } catch (Exception $e) {}
     }
     
-    // Check if already sent today to block double sending
-    if ($renewalId > 0 && isset($conn)) {
+    // Ensure log tables exist
+    if (isset($conn)) {
         try {
-            // Ensure table exists
             $conn->exec("CREATE TABLE IF NOT EXISTS reminder_sent_logs (
                 renewal_id INT NOT NULL,
                 sent_date DATE NOT NULL,
                 PRIMARY KEY (renewal_id, sent_date)
             )");
-            
+            $conn->exec("CREATE TABLE IF NOT EXISTS whatsapp_send_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                renewal_id INT NOT NULL DEFAULT 0,
+                vehicle VARCHAR(100) DEFAULT '',
+                customer VARCHAR(200) DEFAULT '',
+                mobile VARCHAR(20) DEFAULT '',
+                status ENUM('sent','failed') NOT NULL DEFAULT 'failed',
+                error_message TEXT DEFAULT NULL,
+                sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_renewal (renewal_id),
+                INDEX idx_sent_at (sent_at),
+                INDEX idx_status (status)
+            )");
+        } catch (Exception $e) {}
+    }
+    
+    // Check if already sent today to block double sending
+    if ($renewalId > 0 && isset($conn)) {
+        try {
             $check = $conn->prepare("SELECT COUNT(*) FROM reminder_sent_logs WHERE renewal_id = ? AND sent_date = CURDATE()");
             $check->execute([$renewalId]);
             if ($check->fetchColumn() > 0) {
@@ -121,9 +138,43 @@ if (basename($_SERVER['PHP_SELF']) === 'api_whatsapp_send.php') {
         } catch (Exception $e) {}
     }
     
+    // Look up vehicle/customer info for logging
+    $vehicleName = '';
+    $customerName = '';
+    if ($renewalId > 0 && isset($conn)) {
+        try {
+            $tables = $conn->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+            $tableName = in_array('renewal_log', $tables) ? 'renewal_log' : (in_array('RENEWAL_LOG', $tables) ? 'RENEWAL_LOG' : '');
+            if ($tableName) {
+                $infoStmt = $conn->prepare("SELECT vehicle_no, customer_name, customer FROM `$tableName` WHERE id = ?");
+                $infoStmt->execute([$renewalId]);
+                $infoRow = $infoStmt->fetch(PDO::FETCH_ASSOC);
+                if ($infoRow) {
+                    $vehicleName = $infoRow['vehicle_no'] ?? '';
+                    $customerName = $infoRow['customer_name'] ?? $infoRow['customer'] ?? '';
+                }
+            }
+        } catch (Exception $e) {}
+    }
+    
     $res = sendWhatsAppMessage($number, $message);
     
-    // Log successful send to reminder_sent_logs
+    // Log to detailed whatsapp_send_logs (both success & failure)
+    if (isset($conn)) {
+        try {
+            $logStmt = $conn->prepare("INSERT INTO whatsapp_send_logs (renewal_id, vehicle, customer, mobile, status, error_message) VALUES (?, ?, ?, ?, ?, ?)");
+            $logStmt->execute([
+                $renewalId,
+                $vehicleName,
+                $customerName,
+                $number,
+                $res['success'] ? 'sent' : 'failed',
+                $res['success'] ? null : ($res['error'] ?? 'Unknown error')
+            ]);
+        } catch (Exception $e) {}
+    }
+    
+    // Log successful send to reminder_sent_logs (dedup)
     if ($res['success'] && $renewalId > 0 && isset($conn)) {
         try {
             $conn->prepare("INSERT IGNORE INTO reminder_sent_logs (renewal_id, sent_date) VALUES (?, CURDATE())")->execute([$renewalId]);

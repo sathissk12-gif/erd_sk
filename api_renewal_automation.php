@@ -74,15 +74,53 @@ try {
     $stmt = $conn->query($sql);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Fetch today's sent logs to check which customers already received reminders today
-    $sentTodayIds = [];
+    // Ensure send log tables exist
     try {
         $conn->exec("CREATE TABLE IF NOT EXISTS reminder_sent_logs (
             renewal_id INT NOT NULL,
             sent_date DATE NOT NULL,
             PRIMARY KEY (renewal_id, sent_date)
         )");
+    } catch (Exception $e) {}
+    try {
+        $conn->exec("CREATE TABLE IF NOT EXISTS whatsapp_send_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            renewal_id INT NOT NULL DEFAULT 0,
+            vehicle VARCHAR(100) DEFAULT '',
+            customer VARCHAR(200) DEFAULT '',
+            mobile VARCHAR(20) DEFAULT '',
+            status ENUM('sent','failed') NOT NULL DEFAULT 'failed',
+            error_message TEXT DEFAULT NULL,
+            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_renewal (renewal_id),
+            INDEX idx_sent_at (sent_at),
+            INDEX idx_status (status)
+        )");
+    } catch (Exception $e) {}
+
+    // Fetch today's sent logs to check which customers already received reminders today
+    $sentTodayIds = [];
+    try {
         $sentTodayIds = $conn->query("SELECT renewal_id FROM reminder_sent_logs WHERE sent_date = CURDATE()")->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e) {}
+
+    // Fetch latest send status per renewal from detailed logs
+    $sendStatusMap = []; // renewal_id => { status, error_message, sent_at }
+    try {
+        $logRows = $conn->query("SELECT l1.* FROM whatsapp_send_logs l1
+            INNER JOIN (
+                SELECT renewal_id, MAX(id) as max_id FROM whatsapp_send_logs
+                WHERE renewal_id > 0
+                GROUP BY renewal_id
+            ) l2 ON l1.id = l2.max_id
+        ")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($logRows as $lr) {
+            $sendStatusMap[$lr['renewal_id']] = [
+                'status' => $lr['status'],
+                'error_message' => $lr['error_message'],
+                'sent_at' => $lr['sent_at']
+            ];
+        }
     } catch (Exception $e) {}
     
     $result = [];
@@ -124,6 +162,12 @@ try {
         $dbId = $r['id'] ?? null;
         $sentToday = in_array($dbId, $sentTodayIds);
 
+        // Get latest send status (failed/sent) with error info
+        $sendInfo = isset($sendStatusMap[$dbId]) ? $sendStatusMap[$dbId] : null;
+        $sendStatus = $sendInfo ? $sendInfo['status'] : null;
+        $sendError = $sendInfo ? $sendInfo['error_message'] : null;
+        $sendAt = $sendInfo ? $sendInfo['sent_at'] : null;
+
         $result[] = [
             'id' => $dbId,
             'customerName' => $customerName,
@@ -138,7 +182,11 @@ try {
             'mobile' => $primaryMobile,
             'hasMobile' => count($mobiles) > 0,
             'wa_link' => $primaryMobile ? 'https://wa.me/91' . $primaryMobile : '',
-            'sent_today' => $sentToday
+            'sent_today' => $sentToday,
+            // Send status info for dashboard display
+            'send_status' => $sendStatus,       // 'sent', 'failed', or null
+            'send_error' => $sendError,          // error message if failed
+            'send_at' => $sendAt                 // timestamp of last send attempt
         ];
     }
     echo json_encode(['success' => true, 'data' => $result, 'graceTotal' => $expiredGraceDays]);

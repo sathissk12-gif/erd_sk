@@ -224,6 +224,20 @@ body {
     box-shadow: 0 2px 10px rgba(16, 185, 129, 0.1);
 }
 
+.badge-failed {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 2px 10px rgba(239, 68, 68, 0.1);
+}
+
 .popup {
     position: fixed;
     inset: 0;
@@ -375,6 +389,7 @@ function loadReminders(){
 }
 
 function getGroupTitle(type){
+    if(type === "failed_broadcasts") return "⚠️ Failed Broadcasts";
     if(type === "expired") return "Grace Period (Expired)";
     if(type === "today") return "Expires Today";
     if(type && /^d\d+$/.test(type)) {
@@ -385,6 +400,7 @@ function getGroupTitle(type){
 }
 
 function getGroupOrder(type){
+    if(type === "failed_broadcasts") return -2;
     if(type === "expired") return -1;
     if(type === "today") return 0;
     if(type && /^d\d+$/.test(type)) return parseInt(type.replace("d", ""), 10);
@@ -430,6 +446,16 @@ function render(data){
     }
 
     const groups = {};
+    
+    // Separate failed broadcast items into their own group
+    const failedItems = data.filter(item => item.send_status === 'failed');
+    if (failedItems.length > 0) {
+        groups['failed_broadcasts'] = failedItems.map((item, fi) => {
+            item._is_failed = true;
+            return item;
+        });
+    }
+
     data.forEach((item, idx) => {
         item._idx = idx;
         const key = item.type || "upcoming";
@@ -452,12 +478,32 @@ function render(data){
                     ? `<button class="action-btn" onclick="openPopup(${item._idx})"><i class="fa-brands fa-whatsapp"></i> ${buttonText}</button>`
                     : `<button class="action-btn" disabled><i class="fa-solid fa-phone-slash"></i> No Mobile</button>`;
 
+                const isFailed = item.send_status === 'failed';
+                const isSent = item.send_status === 'sent';
+                const sendErrorMsg = item.send_error ? escapeHtml(item.send_error) : '';
+                
+                // Build send status badges
+                let statusBadges = '';
+                if (item.sent_today && isSent) {
+                    statusBadges = '<span class="badge-sent"><i class="fa-solid fa-circle-check"></i> Sent Today</span>';
+                } else if (isFailed) {
+                    statusBadges = `<span class="badge-failed" title="${sendErrorMsg}"><i class="fa-solid fa-circle-exclamation"></i> Failed</span>`;
+                }
+
+                // Build error message display for failed items
+                let errorDisplay = '';
+                if (isFailed && sendErrorMsg) {
+                    errorDisplay = `<div style="margin-top:4px;padding:8px 10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15);border-radius:6px;font-size:12px;color:#f87171;word-break:break-word;">
+                        <i class="fa-solid fa-triangle-exclamation" style="margin-right:4px;"></i> ${sendErrorMsg}
+                    </div>`;
+                }
+
                 html += `
-                    <div class="card">
+                    <div class="card" style="${isFailed ? 'border-color: rgba(239,68,68,0.3);' : ''}">
                         <div class="vehicle">
                             <span>${escapeHtml(item.vehicle)}</span>
                             <div style="display: flex; gap: 8px; align-items: center;">
-                                ${item.sent_today ? '<span class="badge-sent"><i class="fa-solid fa-circle-check"></i> Sent Today</span>' : ''}
+                                ${statusBadges}
                                 <span class="vehicle-icon"><i class="fa-solid fa-car-side"></i></span>
                             </div>
                         </div>
@@ -477,6 +523,7 @@ function render(data){
                             <span class="meta-label">Renewal Due</span>
                             <span class="meta-val amount-val">₹${escapeHtml(item.amount)}</span>
                         </div>
+                        ${errorDisplay}
                         ${button}
                     </div>`;
             });
@@ -761,10 +808,39 @@ function triggerAutoBroadcast(){
     .then(res => {
         if(res.success) {
             const summary = res.summary;
+            const details = res.details || [];
+            
+            // Build failed items detail list
+            let failedDetailsHtml = '';
+            const failedItems = details.filter(d => d.status === 'failed');
+            if (failedItems.length > 0) {
+                failedDetailsHtml = `
+                    <div style="margin-top: 20px; border-top: 1px solid var(--card-border); padding-top: 18px;">
+                        <h4 style="color:#ef4444; font-size:14px; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                            <i class="fa-solid fa-circle-exclamation"></i> Failed Broadcast Details (${failedItems.length})
+                        </h4>
+                        <div style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+                            ${failedItems.map(f => `
+                                <div style="background:rgba(239,68,68,0.06); padding:10px 12px; border-radius:6px; border:1px solid rgba(239,68,68,0.15); font-size:13px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                        <strong style="color:#f8fafc;">${escapeHtml(f.vehicle || f.customer || 'N/A')}</strong>
+                                        <span style="color:#94a3b8; font-size:11px;">${escapeHtml(f.mobile || '')}</span>
+                                    </div>
+                                    <div style="color:#f87171; font-size:12px; word-break:break-word;">
+                                        <i class="fa-solid fa-triangle-exclamation" style="margin-right:4px;"></i>
+                                        ${escapeHtml(f.reason || 'Unknown error')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
             let reportHtml = `
                 <div class="card" style="max-width: 600px; margin: 40px auto; text-align: left; padding: 30px;">
                     <h3 style="color:#25D366; display:flex; align-items:center; gap:10px; margin-bottom:20px;">
-                        <i class="fa-solid fa-circle-check"></i> Broadcast Completed Successfully
+                        <i class="fa-solid fa-circle-check"></i> Broadcast Completed
                     </h3>
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom: 20px;">
                         <div style="background:rgba(255,255,255,0.03); padding:12px; border-radius:8px; border:1px solid var(--card-border);">
@@ -784,6 +860,7 @@ function triggerAutoBroadcast(){
                             <div style="font-size:24px; font-weight:800; color:var(--text-muted);">${summary.skipped_no_mobile}</div>
                         </div>
                     </div>
+                    ${failedDetailsHtml}
                     <button class="action-btn" onclick="loadReminders()" style="background:var(--primary); color:white; border:none; width:100%;"><i class="fa-solid fa-arrows-rotate"></i> Close & Reload Dashboard</button>
                 </div>
             `;

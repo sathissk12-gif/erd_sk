@@ -81,11 +81,27 @@ try {
         throw new Exception("Missing status column in {$tableName}");
     }
 
-    // Create log table if not exists to prevent duplicate sending on same day
+    // Create log tables if not exists
+    // 1. Dedup table to prevent duplicate sending on same day
     $conn->exec("CREATE TABLE IF NOT EXISTS reminder_sent_logs (
         renewal_id INT NOT NULL,
         sent_date DATE NOT NULL,
         PRIMARY KEY (renewal_id, sent_date)
+    )");
+    
+    // 2. Detailed send log with status & error info for dashboard display
+    $conn->exec("CREATE TABLE IF NOT EXISTS whatsapp_send_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        renewal_id INT NOT NULL DEFAULT 0,
+        vehicle VARCHAR(100) DEFAULT '',
+        customer VARCHAR(200) DEFAULT '',
+        mobile VARCHAR(20) DEFAULT '',
+        status ENUM('sent','failed') NOT NULL DEFAULT 'failed',
+        error_message TEXT DEFAULT NULL,
+        sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_renewal (renewal_id),
+        INDEX idx_sent_at (sent_at),
+        INDEX idx_status (status)
     )");
     
     // Fetch settings
@@ -206,9 +222,26 @@ try {
         // Send via WhatsApp
         $result = sendWhatsAppMessage($primaryMobile, $messageText);
 
+        $dbId = $row[$idCol] ?? $row['id'] ?? $row['ID'] ?? 0;
+
+        // Log to detailed send_logs table (both success & failure with error info)
+        try {
+            $logStmt = $conn->prepare("INSERT INTO whatsapp_send_logs (renewal_id, vehicle, customer, mobile, status, error_message) VALUES (?, ?, ?, ?, ?, ?)");
+            $logStmt->execute([
+                $dbId,
+                $vehicle,
+                $customerName,
+                $primaryMobile,
+                $result['success'] ? 'sent' : 'failed',
+                $result['success'] ? null : ($result['error'] ?? 'Unknown error')
+            ]);
+        } catch (Exception $logErr) {
+            // Non-critical: don't stop processing if logging fails
+            error_log("whatsapp_send_logs insert failed: " . $logErr->getMessage());
+        }
+
         if ($result['success']) {
             // Log this renewal as sent today to prevent duplicate sending on same day
-            $dbId = $row[$idCol] ?? $row['id'] ?? $row['ID'] ?? 0;
             if ($dbId > 0) {
                 $conn->prepare("INSERT IGNORE INTO reminder_sent_logs (renewal_id, sent_date) VALUES (?, CURDATE())")->execute([$dbId]);
             }
@@ -227,7 +260,7 @@ try {
                 'customer' => $customerName,
                 'mobile' => $primaryMobile,
                 'status' => 'failed',
-                'reason' => $result['error']
+                'reason' => $result['error'] ?? 'Unknown error'
             ];
         }
     }
