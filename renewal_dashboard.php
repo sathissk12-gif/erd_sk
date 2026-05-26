@@ -796,6 +796,16 @@ function sendAutoWhatsApp(idx, num, btnElement){
 function triggerAutoBroadcast(){
     if(!confirm('Are you sure you want to run the fully automated background WhatsApp broadcast for all due/expired renewals? This will instantly send messages to all customers in the background.')) return;
     
+    // Disable button immediately to prevent double-click
+    const btnBroadcast = document.getElementById("btn-auto-broadcast");
+    if (btnBroadcast) {
+        btnBroadcast.disabled = true;
+        btnBroadcast.style.opacity = "0.5";
+        btnBroadcast.style.cursor = "not-allowed";
+        btnBroadcast.style.background = "rgba(37, 211, 102, 0.08)";
+        btnBroadcast.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Broadcasting...`;
+    }
+    
     document.getElementById("content").innerHTML = `
         <div class="loading">
             <i class="fa-solid fa-robot fa-bounce" style="font-size:48px; color:#25D366; margin-bottom: 20px;"></i>
