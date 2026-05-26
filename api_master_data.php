@@ -225,8 +225,81 @@ switch($action) {
         $table = $_POST['table'] ?? '';
         $ids = $_POST['ids'] ?? '';
         try {
-            $conn->prepare("DELETE FROM `$table` WHERE id IN ($ids)")->execute();
-            echo json_encode(['status' => 'success']);
+            // Support comma-separated IDs for bulk delete
+            $idArray = array_map('trim', explode(',', $ids));
+            $idArray = array_filter($idArray, fn($v) => is_numeric($v));
+            if (empty($idArray)) throw new Exception('No valid IDs provided');
+            $placeholders = implode(',', array_fill(0, count($idArray), '?'));
+            $stmt = $conn->prepare("DELETE FROM `$table` WHERE id IN ($placeholders)");
+            $stmt->execute($idArray);
+            echo json_encode(['status' => 'success', 'deleted' => $stmt->rowCount()]);
+        } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
+        break;
+
+    case 'batch_update':
+        $table = $_POST['table'] ?? '';
+        $ids = $_POST['ids'] ?? '';
+        $column = $_POST['column'] ?? '';
+        $value = $_POST['value'] ?? '';
+        try {
+            $idArray = array_map('trim', explode(',', $ids));
+            $idArray = array_filter($idArray, fn($v) => is_numeric($v));
+            if (empty($idArray)) throw new Exception('No valid IDs provided');
+            if (!$column) throw new Exception('Column name required');
+            $placeholders = implode(',', array_fill(0, count($idArray), '?'));
+            $stmt = $conn->prepare("UPDATE `$table` SET `$column` = ? WHERE id IN ($placeholders)");
+            $stmt->execute(array_merge([$value], $idArray));
+            echo json_encode(['status' => 'success', 'updated' => $stmt->rowCount()]);
+        } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
+        break;
+
+    case 'duplicate_row':
+        $table = $_POST['table'] ?? '';
+        $ids = $_POST['ids'] ?? '';
+        try {
+            $idArray = array_map('trim', explode(',', $ids));
+            $idArray = array_filter($idArray, fn($v) => is_numeric($v));
+            if (empty($idArray)) throw new Exception('No valid IDs provided');
+            
+            // Get columns (exclude auto-increment id)
+            $cols = $conn->query("DESCRIBE `$table`")->fetchAll(PDO::FETCH_ASSOC);
+            $colNames = [];
+            $skipCols = ['id']; // Skip auto-increment primary key
+            foreach ($cols as $col) {
+                $name = $col['Field'];
+                if (in_array($name, $skipCols)) continue;
+                // Skip columns with auto_increment
+                if (strpos($col['Extra'] ?? '', 'auto_increment') !== false) continue;
+                $colNames[] = $name;
+            }
+            
+            if (empty($colNames)) throw new Exception('No columns to duplicate');
+            
+            $placeholders = implode(',', array_fill(0, count($idArray), '?'));
+            $selectCols = '`' . implode('`, `', $colNames) . '`';
+            
+            // Fetch source records
+            $stmt = $conn->prepare("SELECT $selectCols FROM `$table` WHERE id IN ($placeholders)");
+            $stmt->execute($idArray);
+            $sourceRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (empty($sourceRows)) throw new Exception('No records found to duplicate');
+            
+            $insertCols = '`' . implode('`, `', $colNames) . '`';
+            $insertPlaceholders = implode(',', array_fill(0, count($colNames), '?'));
+            $insertStmt = $conn->prepare("INSERT INTO `$table` ($insertCols) VALUES ($insertPlaceholders)");
+            
+            $duplicated = 0;
+            foreach ($sourceRows as $row) {
+                $values = [];
+                foreach ($colNames as $cn) {
+                    $values[] = $row[$cn] ?? '';
+                }
+                $insertStmt->execute($values);
+                $duplicated++;
+            }
+            
+            echo json_encode(['status' => 'success', 'duplicated' => $duplicated]);
         } catch (Exception $e) { echo json_encode(['error' => $e->getMessage()]); }
         break;
 

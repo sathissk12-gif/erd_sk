@@ -29,13 +29,16 @@
             --text-muted: #94a3b8;
             --danger: #f43f5e;
             --success: #10b981;
+            --warning: #f59e0b;
             --card-bg: rgba(30, 41, 59, 0.5);
+            --batch-bar-bg: rgba(15, 23, 42, 0.95);
         }
 
         :root[data-theme="light"] {
             --text-dim: #64748b;
             --text-muted: #64748b;
             --card-bg: rgba(255, 255, 255, 0.6);
+            --batch-bar-bg: rgba(255, 255, 255, 0.95);
         }
         :root[data-theme="dark"] {
             --text-dim: #94a3b8;
@@ -132,6 +135,19 @@
             color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
         }
         .btn-tool:active { transform: scale(0.9); }
+        .btn-tool.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+        /* 📊 Selection Counter Badge */
+        .sel-badge {
+            display: none; align-items: center; gap: 8px;
+            background: var(--primary); color: white; padding: 8px 16px;
+            border-radius: 100px; font-size: 13px; font-weight: 700;
+            white-space: nowrap; cursor: pointer;
+            box-shadow: 0 4px 15px var(--primary-glow);
+            transition: 0.2s;
+        }
+        .sel-badge.show { display: flex; }
+        .sel-badge:active { transform: scale(0.95); }
 
         /* 📱 Grid View (Desktop) vs Card View (Mobile) */
         .content-frame { flex: 1; overflow: auto; padding: 16px; scroll-behavior: smooth; position: relative; }
@@ -144,18 +160,50 @@
             font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--primary); letter-spacing: 1.5px; 
             border-bottom: 2px solid var(--border); white-space: nowrap;
         }
+        th.col-hideable { cursor: pointer; }
+        th.col-hideable:hover { color: var(--text); }
+        th .col-visible-toggle { opacity: 0.4; margin-left: 6px; font-size: 10px; }
         td { 
             padding: 16px 20px; font-size: 14px; border-bottom: 1px solid var(--border); 
             white-space: nowrap; color: var(--text); transition: 0.2s;
         }
         tr:hover td { background: rgba(255,255,255,0.03); color: var(--text); }
+        tr.selected td { background: rgba(139, 92, 246, 0.1) !important; }
+        tr.selected td:first-child { border-left: 3px solid var(--primary); }
+
+        /* Checkbox Styles */
+        .chk-cell { width: 40px; min-width: 40px; text-align: center; padding: 12px 8px !important; }
+        .chk-all { cursor: pointer; }
+        .row-checkbox {
+            width: 20px; height: 20px; border-radius: 6px; cursor: pointer;
+            accent-color: var(--primary);
+        }
+        .chk-cell .row-checkbox { display: block; margin: 0 auto; }
+
+        /* Row Action Buttons */
+        .row-actions { display: flex; gap: 6px; justify-content: center; }
+        .row-action-btn {
+            width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03); color: var(--text-dim); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; transition: 0.2s;
+        }
+        .row-action-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+        .row-action-btn.danger:hover { background: rgba(244,63,94,0.15); color: var(--danger); border-color: rgba(244,63,94,0.3); }
+        .row-action-btn.dup:hover { background: rgba(16,185,129,0.15); color: var(--success); border-color: rgba(16,185,129,0.3); }
 
         /* Mobile Cards */
         .mobile-card-list { display: flex; flex-direction: column; gap: 12px; }
         .data-card { 
             background: var(--card-base, var(--card-bg)); border: 1px solid var(--border); border-radius: 20px; padding: 18px;
-            display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(10px);
+            display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(10px); position: relative;
+            transition: 0.2s;
         }
+        .data-card.selected { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-glow); }
+        .data-card .card-chk {
+            position: absolute; top: 12px; right: 12px; z-index: 2;
+        }
+        .data-card .card-chk input { width: 22px; height: 22px; accent-color: var(--primary); cursor: pointer; }
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
         .card-id { font-size: 12px; font-weight: 800; color: var(--primary); }
         .card-title { font-size: 15px; font-weight: 700; color: var(--text); }
@@ -163,11 +211,104 @@
         .data-item { display: flex; flex-direction: column; gap: 2px; }
         .data-label { font-size: 9px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
         .data-value { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-actions {
+            display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 12px;
+        }
+        .card-action-btn {
+            padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.03); color: var(--text-dim); cursor: pointer;
+            font-size: 12px; font-weight: 600; transition: 0.2s;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .card-action-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+        .card-action-btn.danger:hover { background: rgba(244,63,94,0.15); color: var(--danger); }
 
         @media (min-width: 1024px) {
             .desktop-table-container { display: block; }
             .mobile-card-list { display: none; }
         }
+
+        /* 📋 Batch Operations Bar (Floating) */
+        .batch-bar {
+            position: fixed; bottom: -100px; left: 50%; translate: -50% 0;
+            background: var(--batch-bar-bg); backdrop-filter: blur(30px);
+            border: 1px solid var(--border); border-radius: 24px;
+            padding: 16px 24px; display: flex; align-items: center; gap: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+            z-index: 4000; transition: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            white-space: nowrap;
+        }
+        .batch-bar.show { bottom: 30px; }
+        .batch-bar .batch-count {
+            font-size: 14px; font-weight: 800; color: var(--text);
+            padding-right: 16px; border-right: 1px solid var(--border);
+        }
+        .batch-bar .batch-count span { color: var(--primary); }
+        .batch-btn {
+            padding: 10px 18px; border-radius: 14px; border: none; cursor: pointer;
+            font-weight: 700; font-size: 13px; transition: 0.2s;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .batch-btn:active { transform: scale(0.93); }
+        .batch-btn.danger { background: rgba(244,63,94,0.15); color: var(--danger); border: 1px solid rgba(244,63,94,0.2); }
+        .batch-btn.danger:hover { background: rgba(244,63,94,0.25); }
+        .batch-btn.primary { background: rgba(139,92,246,0.15); color: var(--primary); border: 1px solid rgba(139,92,246,0.2); }
+        .batch-btn.primary:hover { background: rgba(139,92,246,0.25); }
+        .batch-btn.success { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.2); }
+        .batch-btn.success:hover { background: rgba(16,185,129,0.25); }
+        .batch-btn.outline { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+        .batch-btn.outline:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+        /* Column Visibility Toggle Panel */
+        .col-toggle-panel {
+            position: absolute; top: 60px; right: 60px;
+            background: rgba(15, 23, 42, 0.98); border: 1px solid var(--border);
+            border-radius: 20px; padding: 18px; width: 240px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7); backdrop-filter: blur(25px);
+            z-index: 1000; display: none;
+            flex-direction: column; gap: 4px;
+            animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .col-toggle-item {
+            display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+            border-radius: 10px; cursor: pointer; transition: 0.2s;
+            font-size: 13px; color: var(--text-dim); font-weight: 600;
+        }
+        .col-toggle-item:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+        .col-toggle-item input[type="checkbox"] { accent-color: var(--primary); width: 16px; height: 16px; }
+
+        /* Column Filter Panel */
+        .col-filter-panel {
+            position: absolute; top: 60px; right: 16px;
+            background: rgba(15, 23, 42, 0.98); border: 1px solid var(--border);
+            border-radius: 20px; padding: 18px; width: 280px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7); backdrop-filter: blur(25px);
+            z-index: 1000; display: none;
+            flex-direction: column; gap: 10px;
+            animation: slideDown 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .col-filter-select {
+            width: 100%; padding: 12px; border-radius: 12px;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            color: var(--text); font-size: 13px; outline: none;
+        }
+        .col-filter-value {
+            width: 100%; padding: 12px; border-radius: 12px;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+            color: var(--text); font-size: 13px; outline: none;
+        }
+        .col-filter-value:focus { border-color: var(--primary); }
+        .filter-tags {
+            display: flex; flex-wrap: wrap; gap: 6px;
+        }
+        .filter-tag {
+            display: flex; align-items: center; gap: 6px;
+            background: rgba(139,92,246,0.15); color: var(--primary);
+            padding: 6px 12px; border-radius: 100px; font-size: 11px; font-weight: 700;
+        }
+        .filter-tag i { cursor: pointer; opacity: 0.7; }
+        .filter-tag i:hover { opacity: 1; }
+        .filter-tag .tag-col { color: var(--text-dim); font-weight: 500; }
 
         /* 🔄 Components */
         .loader { position: fixed; inset: 0; background: rgba(3,7,18,0.85); z-index: 5000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(15px); }
@@ -195,6 +336,20 @@
         .btn-modal.save { background: var(--primary); color: white; box-shadow: 0 10px 20px var(--primary-glow); }
         .btn-modal:active { transform: scale(0.95); }
 
+        /* Batch Edit Modal - Single Field Update */
+        .batch-field-group { margin-bottom: 18px; }
+        .batch-field-select {
+            width: 100%; padding: 14px; border-radius: 14px;
+            background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+            color: var(--text); font-size: 14px; outline: none; margin-bottom: 12px;
+        }
+        .batch-field-select:focus { border-color: var(--primary); }
+        .batch-info { 
+            font-size: 12px; color: var(--text-dim); text-align: center;
+            background: rgba(139,92,246,0.08); padding: 10px; border-radius: 12px;
+            margin-bottom: 15px; border: 1px solid rgba(139,92,246,0.15);
+        }
+
         /* Floating Buttons */
         .fab-group { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 15px; z-index: 500; }
         .fab { width: 60px; height: 60px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: white; border: none; cursor: pointer; transition: 0.3s; }
@@ -208,6 +363,9 @@
             .modal-card { padding: 25px 20px; border-radius: 24px; height: 100%; max-height: 100vh; }
             .toolbar { padding: 12px 16px; }
             .content-frame { padding: 12px; }
+            .batch-bar { padding: 12px 16px; gap: 10px; border-radius: 20px; width: calc(100% - 32px); }
+            .batch-bar .batch-count { font-size: 12px; padding-right: 10px; }
+            .batch-btn { padding: 8px 12px; font-size: 11px; }
         }
         
         .date-picker-input {
@@ -257,9 +415,28 @@
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed; top: 80px; right: 20px; z-index: 9999;
+            background: var(--batch-bar-bg); backdrop-filter: blur(30px);
+            border: 1px solid var(--border); border-radius: 16px;
+            padding: 16px 24px; display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.5);
+            font-size: 14px; font-weight: 600;
+            transform: translateX(120%); transition: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .toast.show { transform: translateX(0); }
+        .toast.success i { color: var(--success); }
+        .toast.error i { color: var(--danger); }
+        .toast.info i { color: var(--primary); }
+        .toast i { font-size: 20px; }
     </style>
 </head>
 <body>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i><span id="toastMsg">Success</span></div>
 
     <header>
         <div class="header-left">
@@ -267,9 +444,8 @@
             <div class="header-title">CLOUD<span>CONSOLE</span></div>
         </div>
         <div style="display:flex; gap:10px;">
-            <!-- 🎨 Ultra Modern Theme Cycle Button -->
             <div class="icon-btn" onclick="toggleTheme()" title="Change Theme"><i class="fa-solid fa-circle-half-stroke"></i></div>
-            <div class="icon-btn" onclick="loadTableData()"><i class="fa-solid fa-rotate"></i></div>
+            <div class="icon-btn" onclick="loadTableData()" title="Refresh"><i class="fa-solid fa-rotate"></i></div>
             <a href="index.html" class="icon-btn" style="text-decoration:none;"><i class="fa-solid fa-house"></i></a>
         </div>
     </header>
@@ -295,7 +471,24 @@
                 <!-- Tiny visual indicator for matched date column -->
                 <div id="dateIndicatorArea" style="display:flex; align-items:center;"></div>
 
+                <!-- Selection Counter Badge -->
+                <div class="sel-badge" id="selBadge" onclick="clearSelection()">
+                    <i class="fa-solid fa-check-circle"></i>
+                    <span id="selCount">0</span> selected
+                    <i class="fa-solid fa-xmark" style="font-size:12px; opacity:0.7;"></i>
+                </div>
+
                 <div class="toolbar-actions" style="display:flex; gap:8px;">
+                    <!-- Column Visibility Toggle -->
+                    <div class="btn-tool" onclick="toggleColPanel(event)" title="Column Visibility" style="position:relative;">
+                        <i class="fa-solid fa-table-cells"></i>
+                    </div>
+
+                    <!-- Column Filter -->
+                    <div class="btn-tool" onclick="toggleFilterPanel(event)" title="Column Filters" style="position:relative;">
+                        <i class="fa-solid fa-filter-list"></i>
+                    </div>
+
                     <!-- 📥 Unified Export / Date Filter Dropdown Icon -->
                     <div class="btn-tool" onclick="toggleExportPanel(event)" title="Export & Date Filter" style="position: relative; background: var(--primary-glow); border-color: var(--primary);">
                         <i class="fa-solid fa-file-export" style="color:var(--primary); font-size:16px;"></i>
@@ -304,6 +497,28 @@
                     <div class="btn-tool" onclick="document.getElementById('csvInput').click()" title="Import CSV"><i class="fa-solid fa-file-import"></i></div>
                     <input type="file" id="csvInput" style="display:none;" accept=".csv" onchange="handleImport(event)">
                     <div class="btn-tool" onclick="addField()" title="Add Field"><i class="fa-solid fa-plus-minus"></i></div>
+                </div>
+
+                <!-- Column Visibility Toggle Panel -->
+                <div class="col-toggle-panel" id="colTogglePanel" onclick="event.stopPropagation()">
+                    <h4 style="font-weight: 800; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-eye" style="color:var(--primary);"></i> Visible Columns
+                    </h4>
+                    <div id="colToggleList"></div>
+                </div>
+
+                <!-- Column Filter Panel -->
+                <div class="col-filter-panel" id="colFilterPanel" onclick="event.stopPropagation()">
+                    <h4 style="font-weight: 800; font-size: 13px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 8px; display:flex; align-items:center; gap:8px;">
+                        <i class="fa-solid fa-filter" style="color:var(--primary);"></i> Column Filters
+                        <span style="flex:1;"></span>
+                        <span onclick="clearAllColumnFilters()" style="font-size:10px; color:var(--text-dim); cursor:pointer;">Clear all</span>
+                    </h4>
+                    <select class="col-filter-select" id="colFilterSelect" onchange="document.getElementById('colFilterValue').focus()">
+                        <option value="">-- Select column --</option>
+                    </select>
+                    <input type="text" class="col-filter-value" id="colFilterValue" placeholder="Filter value..." oninput="addColumnFilter()">
+                    <div class="filter-tags" id="filterTags"></div>
                 </div>
 
                 <!-- 📂 Glassmorphic Dropdown Panel for Date Filtering & Exporting -->
@@ -348,6 +563,15 @@
         </div>
     </div>
 
+    <!-- Batch Operations Bar -->
+    <div class="batch-bar" id="batchBar">
+        <div class="batch-count"><span id="batchCount">0</span> selected</div>
+        <button class="batch-btn danger" onclick="deleteSelected()" title="Delete selected"><i class="fa-solid fa-trash-can"></i> Delete</button>
+        <button class="batch-btn primary" onclick="batchEdit()" title="Batch Edit"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+        <button class="batch-btn success" onclick="duplicateSelected()" title="Duplicate selected"><i class="fa-solid fa-copy"></i> Duplicate</button>
+        <button class="batch-btn outline" onclick="clearSelection()" title="Clear selection"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
     <div class="fab-group">
         <button class="fab fab-add" onclick="addRow()"><i class="fa-solid fa-plus"></i></button>
     </div>
@@ -369,6 +593,31 @@
         </div>
     </div>
 
+    <!-- Batch Edit Modal -->
+    <div class="modal" id="batchEditModal">
+        <div class="modal-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="font-size:18px; font-weight:800;">Batch Edit</h3>
+                <div class="icon-btn" onclick="closeBatchModal()"><i class="fa-solid fa-xmark"></i></div>
+            </div>
+            <div class="batch-info" id="batchInfo">Updating <strong>0</strong> records</div>
+            <div class="batch-field-group">
+                <label class="field-label">Select Column</label>
+                <select class="batch-field-select" id="batchFieldSelect">
+                    <option value="">-- Choose column --</option>
+                </select>
+            </div>
+            <div class="batch-field-group">
+                <label class="field-label">New Value</label>
+                <input type="text" class="field-input" id="batchFieldValue" placeholder="Enter new value for all selected records...">
+            </div>
+            <div class="modal-actions" style="grid-template-columns: 1fr 2fr;">
+                <button class="btn-modal delete" onclick="closeBatchModal()">Cancel</button>
+                <button class="btn-modal save" onclick="executeBatchEdit()">Update All</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const AUTH_PWD = "8508200253";
         let currentTable = "sales_log";
@@ -378,6 +627,10 @@
         let currentEditingId = null;
         let activeFilters = {};
         let sortState = { column: null, direction: 'asc' };
+        
+        // Selection System
+        let selectedIds = new Set();
+        let hiddenColumns = new Set();
 
         const tableGroups = {
             "Operations": ['sales_log', 'invoice_log', 'renewal_log', 'renewal_invoice_log', 'customerdatas'],
@@ -386,6 +639,18 @@
             "System": ['price_master', 'settings']
         };
 
+        // ========== TOAST SYSTEM ==========
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = toast.querySelector('i');
+            document.getElementById('toastMsg').textContent = msg;
+            icon.className = type === 'success' ? 'fa-solid fa-circle-check' : type === 'error' ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-circle-info';
+            toast.className = 'toast show ' + type;
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // ========== SIDEBAR ==========
         function toggleMenu() {
             document.getElementById('sidebar').classList.toggle('open');
             document.getElementById('overlay').classList.toggle('open');
@@ -460,18 +725,38 @@
             return null;
         }
 
+        // ========== PANEL TOGGLES ==========
         function toggleExportPanel(event) {
             if (event) event.stopPropagation();
+            hideAllPanels();
             const panel = document.getElementById('exportPanel');
-            const isVisible = panel.style.display === 'flex';
-            panel.style.display = isVisible ? 'none' : 'flex';
+            panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
         }
 
-        document.addEventListener('click', function() {
-            const panel = document.getElementById('exportPanel');
-            if (panel) panel.style.display = 'none';
-        });
+        function toggleColPanel(event) {
+            if (event) event.stopPropagation();
+            hideAllPanels();
+            const panel = document.getElementById('colTogglePanel');
+            panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+        }
 
+        function toggleFilterPanel(event) {
+            if (event) event.stopPropagation();
+            hideAllPanels();
+            const panel = document.getElementById('colFilterPanel');
+            panel.style.display = panel.style.display === 'flex' ? 'none' : 'flex';
+            if (panel.style.display === 'flex') populateFilterSelect();
+        }
+
+        function hideAllPanels() {
+            document.getElementById('exportPanel').style.display = 'none';
+            document.getElementById('colTogglePanel').style.display = 'none';
+            document.getElementById('colFilterPanel').style.display = 'none';
+        }
+
+        document.addEventListener('click', hideAllPanels);
+
+        // ========== DATA LOADING ==========
         async function loadTableData() {
             showLoader(true);
             try {
@@ -480,11 +765,15 @@
                 tableData = res.data || [];
                 activeFilters = {};
                 sortState = { column: null, direction: 'asc' };
+                selectedIds = new Set();
                 document.getElementById('masterSearch').value = '';
                 
                 // Reset Date Filters
                 document.getElementById('startDate').value = '';
                 document.getElementById('endDate').value = '';
+
+                // Reset hidden columns
+                hiddenColumns = new Set();
 
                 // Dynamically configure Date picker inside the panel
                 const dateCol = findDateColumn();
@@ -507,34 +796,139 @@
                     panelDateSec.style.display = 'none';
                 }
 
+                updateSelectionUI();
                 renderUI();
             } catch (e) { console.error(e); }
             showLoader(false);
         }
 
+        // ========== SELECTION SYSTEM ==========
+        function toggleSelectAll() {
+            const visibleRows = getVisibleRows();
+            const visibleIds = new Set(visibleRows.map(r => r.id.toString()));
+            
+            // Check if all visible are selected
+            const allSelected = visibleRows.every(r => selectedIds.has(r.id.toString()));
+            
+            if (allSelected) {
+                // Deselect all visible
+                visibleIds.forEach(id => selectedIds.delete(id));
+            } else {
+                // Select all visible
+                visibleIds.forEach(id => selectedIds.add(id));
+            }
+            updateSelectionUI();
+            renderUI();
+        }
+
+        function toggleSelect(id) {
+            const idStr = id.toString();
+            if (selectedIds.has(idStr)) {
+                selectedIds.delete(idStr);
+            } else {
+                selectedIds.add(idStr);
+            }
+            updateSelectionUI();
+            renderUI();
+        }
+
+        function clearSelection() {
+            selectedIds = new Set();
+            updateSelectionUI();
+            renderUI();
+        }
+
+        function updateSelectionUI() {
+            const count = selectedIds.size;
+            const badge = document.getElementById('selBadge');
+            const batchBar = document.getElementById('batchBar');
+            const batchCount = document.getElementById('batchCount');
+            
+            if (count > 0) {
+                badge.classList.add('show');
+                document.getElementById('selCount').textContent = count;
+                batchBar.classList.add('show');
+                batchCount.textContent = count;
+            } else {
+                badge.classList.remove('show');
+                batchBar.classList.remove('show');
+            }
+        }
+
+        // ========== RENDERING ==========
         function renderUI() {
-            renderGrid(); // Desktop
-            renderCards(); // Mobile
+            renderGrid();
+            renderCards();
+            renderColToggle();
+        }
+
+        function renderColToggle() {
+            const list = document.getElementById('colToggleList');
+            if (!list) return;
+            list.innerHTML = columns.map(c => `
+                <label class="col-toggle-item">
+                    <input type="checkbox" ${hiddenColumns.has(c) ? '' : 'checked'} 
+                           onchange="toggleColumnVisibility('${c}')">
+                    ${c.replace(/_/g, ' ')}
+                </label>
+            `).join('');
+        }
+
+        function toggleColumnVisibility(col) {
+            if (hiddenColumns.has(col)) {
+                hiddenColumns.delete(col);
+            } else {
+                hiddenColumns.add(col);
+            }
+            renderUI();
         }
 
         function renderGrid() {
             const head = document.getElementById('gridHead');
             const body = document.getElementById('gridBody');
+            const visibleCols = columns.filter(c => !hiddenColumns.has(c));
+            
             head.innerHTML = `
                 <tr>
-                    ${columns.map(c => `
+                    <th class="chk-cell">
+                        <input type="checkbox" class="row-checkbox chk-all" onchange="toggleSelectAll()"
+                               ${getVisibleRows().length > 0 && getVisibleRows().every(r => selectedIds.has(r.id.toString())) ? 'checked' : ''}>
+                    </th>
+                    ${visibleCols.map(c => `
                         <th onclick="toggleSort('${c}')" style="cursor:pointer;">
                             ${c.replace(/_/g, ' ')}${getSortIcon(c)}
                         </th>
                     `).join('')}
+                    <th style="width:90px; text-align:center;">Actions</th>
                 </tr>`;
             
             const rows = getVisibleRows();
-            body.innerHTML = rows.map(row => `
-                <tr onclick="openRecord('${row.id}')">
-                    ${columns.map(c => `<td>${escapeHtml(row[c] || '-')}</td>`).join('')}
-                </tr>
-            `).join('') || '<tr><td colspan="100" style="text-align:center; padding:50px;">No data</td></tr>';
+            body.innerHTML = rows.map(row => {
+                const isSelected = selectedIds.has(row.id.toString());
+                return `
+                    <tr class="${isSelected ? 'selected' : ''}">
+                        <td class="chk-cell" onclick="event.stopPropagation()">
+                            <input type="checkbox" class="row-checkbox" 
+                                   ${isSelected ? 'checked' : ''}
+                                   onchange="toggleSelect('${row.id}')">
+                        </td>
+                        ${visibleCols.map(c => `<td>${escapeHtml(row[c] || '-')}</td>`).join('')}
+                        <td onclick="event.stopPropagation()">
+                            <div class="row-actions">
+                                <button class="row-action-btn" onclick="openRecord('${row.id}')" title="Edit">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button class="row-action-btn dup" onclick="duplicateRecord('${row.id}')" title="Duplicate">
+                                    <i class="fa-solid fa-copy"></i>
+                                </button>
+                                <button class="row-action-btn danger" onclick="quickDelete('${row.id}')" title="Delete">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('') || '<tr><td colspan="100" style="text-align:center; padding:50px;">No data</td></tr>';
         }
 
         function renderCards() {
@@ -546,21 +940,39 @@
                 return;
             }
 
+            const visibleCols = columns.filter(c => !hiddenColumns.has(c));
+            const titleKey = visibleCols[1] || visibleCols[0] || 'id';
+
             container.innerHTML = rows.map(row => {
-                const titleKey = columns[1] || 'id';
+                const isSelected = selectedIds.has(row.id.toString());
                 return `
-                    <div class="data-card" onclick="openRecord('${row.id}')">
-                        <div class="card-header">
+                    <div class="data-card ${isSelected ? 'selected' : ''}">
+                        <div class="card-chk" onclick="event.stopPropagation()">
+                            <input type="checkbox" ${isSelected ? 'checked' : ''}
+                                   onchange="toggleSelect('${row.id}')">
+                        </div>
+                        <div class="card-header" onclick="openRecord('${row.id}')">
                             <div class="card-title">${escapeHtml(row[titleKey] || 'No Title')}</div>
                             <div class="card-id">#${row.id}</div>
                         </div>
-                        <div class="card-body">
-                            ${columns.slice(2, 6).map(c => `
+                        <div class="card-body" onclick="openRecord('${row.id}')">
+                            ${visibleCols.slice(2, 6).map(c => `
                                 <div class="data-item">
                                     <div class="data-label">${c.replace(/_/g, ' ')}</div>
                                     <div class="data-value">${escapeHtml(row[c] || '-')}</div>
                                 </div>
                             `).join('')}
+                        </div>
+                        <div class="card-actions">
+                            <button class="card-action-btn" onclick="openRecord('${row.id}')">
+                                <i class="fa-solid fa-pen"></i> Edit
+                            </button>
+                            <button class="card-action-btn" onclick="duplicateRecord('${row.id}')">
+                                <i class="fa-solid fa-copy"></i> Dup
+                            </button>
+                            <button class="card-action-btn danger" onclick="quickDelete('${row.id}')">
+                                <i class="fa-solid fa-trash-can"></i> Del
+                            </button>
                         </div>
                     </div>
                 `;
@@ -568,12 +980,13 @@
         }
 
         function escapeHtml(value) {
+            if (value === null || value === undefined) return '';
             return String(value)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
+                .replace(/&/g, '&')
+                .replace(/</g, '<')
+                .replace(/>/g, '>')
+                .replace(/"/g, '"')
+                .replace(/'/g, ''');
         }
 
         function getSortIcon(column) {
@@ -590,6 +1003,7 @@
             renderUI();
         }
 
+        // ========== FILTERING ==========
         function getVisibleRows() {
             let rows = tableData;
 
@@ -614,7 +1028,18 @@
                 }
             }
 
-            // 3. Sorting
+            // 3. Column-specific Filters
+            for (const [col, val] of Object.entries(activeFilters)) {
+                if (val) {
+                    const lowerVal = val.toLowerCase();
+                    rows = rows.filter(row => {
+                        const cellVal = (row[col] || '').toString().toLowerCase();
+                        return cellVal.includes(lowerVal);
+                    });
+                }
+            }
+
+            // 4. Sorting
             if (sortState.column) {
                 const col = sortState.column;
                 const dir = sortState.direction === 'asc' ? 1 : -1;
@@ -633,6 +1058,57 @@
             return rows;
         }
 
+        // ========== COLUMN FILTERS ==========
+        function populateFilterSelect() {
+            const sel = document.getElementById('colFilterSelect');
+            const currentVal = sel.value;
+            sel.innerHTML = '<option value="">-- Select column --</option>' + 
+                columns.filter(c => c !== 'id').map(c => 
+                    `<option value="${c}" ${c === currentVal ? 'selected' : ''}>${c.replace(/_/g, ' ')}</option>`
+                ).join('');
+            renderFilterTags();
+        }
+
+        function addColumnFilter() {
+            const col = document.getElementById('colFilterSelect').value;
+            const val = document.getElementById('colFilterValue').value.trim();
+            if (col && val) {
+                activeFilters[col] = val;
+                renderFilterTags();
+                renderUI();
+            }
+        }
+
+        function removeColumnFilter(col) {
+            delete activeFilters[col];
+            renderFilterTags();
+            renderUI();
+        }
+
+        function clearAllColumnFilters() {
+            activeFilters = {};
+            document.getElementById('colFilterSelect').value = '';
+            document.getElementById('colFilterValue').value = '';
+            renderFilterTags();
+            renderUI();
+        }
+
+        function renderFilterTags() {
+            const container = document.getElementById('filterTags');
+            const entries = Object.entries(activeFilters);
+            if (entries.length === 0) {
+                container.innerHTML = '<div style="font-size:11px; color:var(--text-dim); padding:4px 0;">No active filters</div>';
+                return;
+            }
+            container.innerHTML = entries.map(([col, val]) => `
+                <span class="filter-tag">
+                    <span class="tag-col">${col.replace(/_/g, ' ')}:</span> ${escapeHtml(val)}
+                    <i class="fa-solid fa-xmark" onclick="removeColumnFilter('${col}')"></i>
+                </span>
+            `).join('');
+        }
+
+        // ========== RECORD OPERATIONS ==========
         function openRecord(id) {
             currentEditingId = id;
             const record = tableData.find(r => r.id.toString() === id.toString());
@@ -670,9 +1146,10 @@
                     await fetch('api_master_data.php', { method: 'POST', body: fd });
                 }
                 closeModal();
+                showToast('Record saved successfully');
                 loadTableData();
             } catch(err) {
-                alert("Error saving data");
+                showToast('Error saving data', 'error');
                 showLoader(false);
             }
         }
@@ -685,7 +1162,7 @@
         async function deleteSingle() {
             if(!confirm("Are you sure? This cannot be undone.")) return;
             const pwd = prompt("Enter Admin Password to confirm:");
-            if(pwd !== AUTH_PWD) return alert("Unauthorized access denied.");
+            if(pwd !== AUTH_PWD) return showToast("Unauthorized access denied.", 'error');
             
             const fd = new FormData();
             fd.append('action', 'delete_row');
@@ -693,11 +1170,137 @@
             fd.append('ids', currentEditingId);
             
             showLoader(true);
-            await fetch('api_master_data.php', { method: 'POST', body: fd });
+            const res = await fetch('api_master_data.php', { method: 'POST', body: fd }).then(r => r.json());
             closeModal();
+            if (res.status === 'success') showToast('Record deleted');
             loadTableData();
         }
 
+        async function quickDelete(id) {
+            if(!confirm(`Delete record #${id}? This cannot be undone.`)) return;
+            const pwd = prompt("Enter Admin Password to confirm:");
+            if(pwd !== AUTH_PWD) return showToast("Unauthorized access denied.", 'error');
+            
+            const fd = new FormData();
+            fd.append('action', 'delete_row');
+            fd.append('table', currentTable);
+            fd.append('ids', id);
+            
+            showLoader(true);
+            const res = await fetch('api_master_data.php', { method: 'POST', body: fd }).then(r => r.json());
+            if (res.status === 'success') showToast('Record deleted');
+            loadTableData();
+        }
+
+        async function duplicateRecord(id) {
+            const fd = new FormData();
+            fd.append('action', 'duplicate_row');
+            fd.append('table', currentTable);
+            fd.append('ids', id);
+            
+            showLoader(true);
+            const res = await fetch('api_master_data.php', { method: 'POST', body: fd }).then(r => r.json());
+            if (res.status === 'success') {
+                showToast(`Record #${id} duplicated successfully`);
+                loadTableData();
+            } else {
+                showToast(res.error || 'Duplicate failed', 'error');
+                showLoader(false);
+            }
+        }
+
+        // ========== BATCH OPERATIONS ==========
+        async function deleteSelected() {
+            if (selectedIds.size === 0) return;
+            if(!confirm(`Delete ${selectedIds.size} selected records? This cannot be undone.`)) return;
+            const pwd = prompt("Enter Admin Password to confirm:");
+            if(pwd !== AUTH_PWD) return showToast("Unauthorized access denied.", 'error');
+            
+            const fd = new FormData();
+            fd.append('action', 'delete_row');
+            fd.append('table', currentTable);
+            fd.append('ids', [...selectedIds].join(','));
+            
+            showLoader(true);
+            const res = await fetch('api_master_data.php', { method: 'POST', body: fd }).then(r => r.json());
+            if (res.status === 'success') {
+                showToast(`Deleted ${res.deleted || selectedIds.size} records`);
+                selectedIds = new Set();
+                loadTableData();
+            } else {
+                showToast(res.error || 'Delete failed', 'error');
+                showLoader(false);
+            }
+        }
+
+        function batchEdit() {
+            if (selectedIds.size === 0) return;
+            
+            const select = document.getElementById('batchFieldSelect');
+            select.innerHTML = '<option value="">-- Choose column --</option>' + 
+                columns.filter(c => c !== 'id').map(c => 
+                    `<option value="${c}">${c.replace(/_/g, ' ')}</option>`
+                ).join('');
+            
+            document.getElementById('batchInfo').innerHTML = `Updating <strong>${selectedIds.size}</strong> records in <strong>${currentTable.replace(/_/g, ' ')}</strong>`;
+            document.getElementById('batchFieldValue').value = '';
+            document.getElementById('batchEditModal').style.display = 'flex';
+        }
+
+        async function executeBatchEdit() {
+            const column = document.getElementById('batchFieldSelect').value;
+            const value = document.getElementById('batchFieldValue').value.trim();
+            
+            if (!column) return showToast('Please select a column', 'error');
+            if (!value) return showToast('Please enter a value', 'error');
+            
+            const fd = new FormData();
+            fd.append('action', 'batch_update');
+            fd.append('table', currentTable);
+            fd.append('ids', [...selectedIds].join(','));
+            fd.append('column', column);
+            fd.append('value', value);
+            
+            showLoader(true);
+            try {
+                const res = await fetch('api_master_data.php', { method: 'POST', body: fd }).then(r => r.json());
+                if (res.status === 'success') {
+                    showToast(`Updated ${res.updated || selectedIds.size} records`);
+                    closeBatchModal();
+                    selectedIds = new Set();
+                    loadTableData();
+                } else {
+                    showToast(res.error || 'Batch update failed', 'error');
+                    showLoader(false);
+                }
+            } catch(err) {
+                showToast('Network error', 'error');
+                showLoader(false);
+            }
+        }
+
+        async function duplicateSelected() {
+            if (selectedIds.size === 0) return;
+            if(!confirm(`Duplicate ${selectedIds.size} selected records?`)) return;
+            
+            const fd = new FormData();
+            fd.append('action', 'duplicate_row');
+            fd.append('table', currentTable);
+            fd.append('ids', [...selectedIds].join(','));
+            
+            showLoader(true);
+            const res = await fetch('api_master_data.php', { method: 'POST', body: fd }).then(r => r.json());
+            if (res.status === 'success') {
+                showToast(`Duplicated ${res.duplicated || selectedIds.size} records`);
+                selectedIds = new Set();
+                loadTableData();
+            } else {
+                showToast(res.error || 'Duplicate failed', 'error');
+                showLoader(false);
+            }
+        }
+
+        // ========== FIELD MANAGEMENT ==========
         async function addField() {
             const name = prompt("Enter New Field Name (No spaces, use _):");
             if(!name) return;
@@ -706,10 +1309,12 @@
             fd.append('table', currentTable);
             fd.append('name', name);
             showLoader(true);
-            await fetch('api_master_data.php', { method: 'POST', body: fd });
+            const res = await fetch('api_master_data.php', { method: 'POST', body: fd }).then(r => r.json());
+            if (res.status === 'success') showToast(`Field "${name}" added`);
             loadTableData();
         }
 
+        // ========== FILTER & UTILITY ==========
         function filterLocal() {
             renderUI();
         }
@@ -722,6 +1327,8 @@
 
         function switchTable(t) {
             currentTable = t;
+            selectedIds = new Set();
+            hiddenColumns = new Set();
             renderSidebar();
             if(window.innerWidth < 1024) toggleMenu();
             loadTableData();
@@ -729,17 +1336,20 @@
 
         function showLoader(show) { document.getElementById('loader').style.display = show ? 'flex' : 'none'; }
         function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+        function closeBatchModal() { document.getElementById('batchEditModal').style.display = 'none'; }
 
+        // ========== EXPORT ==========
         function exportCSV() {
             const rowsToExport = getVisibleRows();
             if(rowsToExport.length === 0) {
-                alert("No records to export matching current filters.");
+                showToast("No records to export matching current filters.", 'error');
                 return;
             }
             
-            let csv = columns.join(",") + "\n";
+            const visibleCols = columns.filter(c => !hiddenColumns.has(c));
+            let csv = visibleCols.join(",") + "\n";
             rowsToExport.forEach(row => {
-                let values = columns.map(c => `"${(row[c] || '').toString().replace(/"/g, '""')}"`);
+                let values = visibleCols.map(c => `"${(row[c] || '').toString().replace(/"/g, '""')}"`);
                 csv += values.join(",") + "\n";
             });
             const blob = new Blob([csv], { type: 'text/csv' });
@@ -751,6 +1361,7 @@
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+            showToast(`Exported ${rowsToExport.length} records`);
         }
 
         async function handleImport(e) {
@@ -767,13 +1378,13 @@
             try {
                 const res = await fetch('api_master_data.php', { method: 'POST', body: fd }).then(r => r.json());
                 if(res.status === 'success') {
-                    alert("Import successful: " + res.message);
+                    showToast("Import successful: " + res.message);
                     loadTableData();
                 } else {
-                    alert(res.error || "Import failed. Please check CSV format.");
+                    showToast(res.error || "Import failed. Please check CSV format.", 'error');
                 }
             } catch (err) {
-                alert("Network error during import");
+                showToast("Network error during import", 'error');
             }
             showLoader(false);
             e.target.value = ""; 
