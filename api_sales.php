@@ -347,8 +347,16 @@ switch($action) {
             }
 
             if ($software !== '') {
-                $conn->prepare("INSERT INTO stock_ledger (item_name, qty, item_type, date) VALUES (?, ?, 'SOFTWARE', CURDATE())")
-                    ->execute([$software, -1 * $softwareStockQty]);
+                // 🧾 Insert stock ledger entry for software sale — with remark='SALES' and vehicle_no as reference
+                $stockCols = $conn->query("DESCRIBE stock_ledger")->fetchAll(PDO::FETCH_COLUMN);
+                $saleRefCol = in_array('vehicle_no', $stockCols) ? 'vehicle_no' : (in_array('reference', $stockCols) ? 'reference' : null);
+                if ($saleRefCol && !empty($vehicle)) {
+                    $conn->prepare("INSERT INTO stock_ledger (date, item_type, item_name, qty, `$saleRefCol`, remark) VALUES (CURDATE(), 'SOFTWARE', ?, ?, ?, 'SALES')")
+                        ->execute([$software, -1 * $softwareStockQty, $vehicle]);
+                } else {
+                    $conn->prepare("INSERT INTO stock_ledger (date, item_type, item_name, qty, remark) VALUES (CURDATE(), 'SOFTWARE', ?, ?, 'SALES')")
+                        ->execute([$software, -1 * $softwareStockQty]);
+                }
             }
 
             // 🆕 Auto-Register Customer if not exists (Only if they have a valid mobile number)

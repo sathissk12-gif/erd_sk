@@ -634,12 +634,18 @@
                         ${stockMovement.map(m => {
                             const q = parseInt(m.qty);
                             const isIn = q > 0;
+                            // Build remark/reference display
+                            let refText = m.remark || '';
+                            const refExtra = m.reference || m.vehicle_no || '';
+                            if (refText && refExtra) refText += ' — ' + refExtra;
+                            else if (!refText && refExtra) refText = refExtra;
+                            if (!refText) refText = '—';
                             return `
                                 <tr>
                                     <td style="white-space:nowrap;font-size:10px">${m.date || '—'}</td>
                                     <td style="font-family:'Outfit';font-weight:800;${isIn ? 'color:var(--success)' : 'color:var(--danger)'}">${isIn ? '+' : ''}${q}</td>
                                     <td><span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;${isIn ? 'background:rgba(16,185,129,0.15);color:var(--success)' : 'background:rgba(239,68,68,0.15);color:var(--danger)'}">${isIn ? 'STOCK IN' : 'STOCK OUT'}</span></td>
-                                    <td style="font-size:10px">${m.remark || m.reference || '—'}</td>
+                                    <td style="font-size:10px">${refText}</td>
                                 </tr>
                             `;
                         }).join('')}

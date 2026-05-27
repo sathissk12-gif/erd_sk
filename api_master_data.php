@@ -814,16 +814,35 @@ switch($action) {
             $stmtStock->execute([$softwareName]);
             $stock = $stmtStock->fetch(PDO::FETCH_ASSOC);
 
-            // 4️⃣ Stock movement history (last 50 entries) — with safe column detection
+            // 4️⃣ Stock movement history (last 50 entries from stock_ledger) — with safe column detection
             $ledgerCols = $conn->query("DESCRIBE stock_ledger")->fetchAll(PDO::FETCH_COLUMN);
             $selCols = ['date', 'qty', 'item_type'];
             if (in_array('remark', $ledgerCols)) $selCols[] = 'remark';
             if (in_array('reference', $ledgerCols)) $selCols[] = 'reference';
+            if (in_array('vehicle_no', $ledgerCols)) $selCols[] = 'vehicle_no';
             $selList = implode(', ', $selCols);
             $orderCol = in_array('id', $ledgerCols) ? 'id' : 'date';
             $stmtLedger = $conn->prepare("SELECT $selList FROM stock_ledger WHERE item_name = ? ORDER BY $orderCol DESC LIMIT 50");
             $stmtLedger->execute([$softwareName]);
             $stockMovement = $stmtLedger->fetchAll(PDO::FETCH_ASSOC);
+
+            // 5️⃣ Also merge past sales from invoice_log into stock movement (for entries recorded without remark='SALES')
+            $salesMovement = [];
+            foreach ($sales as $s) {
+                $salesMovement[] = [
+                    'date' => $s['invoice_date'] ?? date('Y-m-d'),
+                    'qty' => -1,
+                    'item_type' => 'SOFTWARE',
+                    'remark' => 'SALES',
+                    'reference' => $s['vehicle_no'] ?? $s['invoice_no'] ?? ''
+                ];
+            }
+            // Merge and sort by date desc, limit to 50 total
+            $allMovement = array_merge($stockMovement, $salesMovement);
+            usort($allMovement, function($a, $b) {
+                return ($b['date'] ?? '') <=> ($a['date'] ?? '');
+            });
+            $stockMovement = array_slice($allMovement, 0, 50);
 
             // Calculate sales totals
             $totalSales = count($sales);
