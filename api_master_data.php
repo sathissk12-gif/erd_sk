@@ -814,17 +814,16 @@ switch($action) {
             $stmtStock->execute([$softwareName]);
             $stock = $stmtStock->fetch(PDO::FETCH_ASSOC);
 
-            // 4️⃣ Stock movement history (last 50 entries)
-            $stmtLedger = $conn->prepare("SELECT date, qty, remark, reference FROM stock_ledger WHERE item_name = ? ORDER BY id DESC, date DESC LIMIT 50");
+            // 4️⃣ Stock movement history (last 50 entries) — with safe column detection
+            $ledgerCols = $conn->query("DESCRIBE stock_ledger")->fetchAll(PDO::FETCH_COLUMN);
+            $selCols = ['date', 'qty', 'item_type'];
+            if (in_array('remark', $ledgerCols)) $selCols[] = 'remark';
+            if (in_array('reference', $ledgerCols)) $selCols[] = 'reference';
+            $selList = implode(', ', $selCols);
+            $orderCol = in_array('id', $ledgerCols) ? 'id' : 'date';
+            $stmtLedger = $conn->prepare("SELECT $selList FROM stock_ledger WHERE item_name = ? ORDER BY $orderCol DESC LIMIT 50");
             $stmtLedger->execute([$softwareName]);
             $stockMovement = $stmtLedger->fetchAll(PDO::FETCH_ASSOC);
-            // If 'id' column doesn't exist, try ordering by date only
-            if (empty($stockMovement)) {
-                try {
-                    $stmtLedger2 = $conn->query("SELECT date, qty, remark, reference FROM stock_ledger WHERE item_name = " . $conn->quote($softwareName) . " ORDER BY date DESC LIMIT 50");
-                    $stockMovement = $stmtLedger2->fetchAll(PDO::FETCH_ASSOC);
-                } catch (Exception $e2) { $stockMovement = []; }
-            }
 
             // Calculate sales totals
             $totalSales = count($sales);
