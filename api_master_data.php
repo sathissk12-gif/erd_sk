@@ -814,6 +814,18 @@ switch($action) {
             $stmtStock->execute([$softwareName]);
             $stock = $stmtStock->fetch(PDO::FETCH_ASSOC);
 
+            // 4️⃣ Stock movement history (last 50 entries)
+            $stmtLedger = $conn->prepare("SELECT date, qty, remark, reference FROM stock_ledger WHERE item_name = ? ORDER BY id DESC, date DESC LIMIT 50");
+            $stmtLedger->execute([$softwareName]);
+            $stockMovement = $stmtLedger->fetchAll(PDO::FETCH_ASSOC);
+            // If 'id' column doesn't exist, try ordering by date only
+            if (empty($stockMovement)) {
+                try {
+                    $stmtLedger2 = $conn->query("SELECT date, qty, remark, reference FROM stock_ledger WHERE item_name = " . $conn->quote($softwareName) . " ORDER BY date DESC LIMIT 50");
+                    $stockMovement = $stmtLedger2->fetchAll(PDO::FETCH_ASSOC);
+                } catch (Exception $e2) { $stockMovement = []; }
+            }
+
             // Calculate sales totals
             $totalSales = count($sales);
             $totalRevenue = 0;
@@ -830,10 +842,21 @@ switch($action) {
                 $totalRenewalAmt += (float)(($r[$amtCol] ?? $r['amount'] ?? 0));
             }
 
+            // Calculate stock in (additions) vs stock out (reductions)
+            $totalStockIn = 0; $totalStockOut = 0;
+            foreach ($stockMovement as $m) {
+                $q = (int)($m['qty'] ?? 0);
+                if ($q > 0) $totalStockIn += $q;
+                else $totalStockOut += abs($q);
+            }
+
             echo json_encode([
                 'status' => 'success',
                 'software_name' => $softwareName,
                 'current_stock' => (int)($stock['current_stock'] ?? 0),
+                'total_stock_in' => $totalStockIn,
+                'total_stock_out' => $totalStockOut,
+                'stock_movement' => $stockMovement,
                 'sales_count' => $totalSales,
                 'sales_total_amount' => $totalRevenue,
                 'sales_paid_amount' => $totalPaid,
@@ -869,8 +892,10 @@ switch($action) {
             }
             $total = $inStock + $sold + $returned;
 
-            // 2️⃣ Recent additions (last 30)
-            $stmt = $conn->prepare("SELECT imei, supplier_name, date, rate, sl_no, status FROM device_master WHERE device_model = ? ORDER BY date DESC, id DESC LIMIT 30");
+            // 2️⃣ Recent additions (last 30) — Detect ordering column safely
+            $colCheck = $conn->query("SHOW COLUMNS FROM device_master LIKE 'id'");
+            $orderCol = $colCheck->rowCount() > 0 ? 'id' : 'sl_no';
+            $stmt = $conn->prepare("SELECT imei, supplier_name, date, rate, sl_no, status FROM device_master WHERE device_model = ? ORDER BY date DESC, $orderCol DESC LIMIT 30");
             $stmt->execute([$modelName]);
             $recentAdditions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

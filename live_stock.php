@@ -587,22 +587,25 @@
 
             const sales = data.sales || [];
             const renewals = data.renewals || [];
+            const stockMovement = data.stock_movement || [];
             const sc = data.sales_count || 0;
             const rc = data.renewals_count || 0;
             const stock = data.current_stock || 0;
             const totalAmt = data.sales_total_amount || 0;
             const paidAmt = data.sales_paid_amount || 0;
             const renewTotal = data.renewals_total || 0;
+            const totalStockIn = data.total_stock_in || 0;
+            const totalStockOut = data.total_stock_out || 0;
 
             let html = '';
 
-            // Summary mini-cards
+            // Summary mini-cards — Updated with Stock In/Out
             html += `
                 <div class="detail-summary">
                     <div class="d-card" style="border-left:3px solid var(--secondary);">
-                        <div class="d-label">In Stock</div>
+                        <div class="d-label">Current Stock</div>
                         <div class="d-val" style="color:var(--secondary)">${stock}</div>
-                        <div class="d-sub">Current Quantity</div>
+                        <div class="d-sub">${totalStockIn} added · ${totalStockOut} reduced</div>
                     </div>
                     <div class="d-card" style="border-left:3px solid var(--success);">
                         <div class="d-label">Sales</div>
@@ -621,6 +624,30 @@
                     </div>
                 </div>
             `;
+
+            // 📦 Stock Movement History (NEW)
+            html += `<div class="detail-section-title"><i class="fa-solid fa-arrow-trend-up"></i> Stock Movement History (${stockMovement.length})</div>`;
+            if (stockMovement.length > 0) {
+                html += `
+                    <table class="detail-table">
+                        <tr><th>Date</th><th>Qty</th><th>Type</th><th>Remark / Reference</th></tr>
+                        ${stockMovement.map(m => {
+                            const q = parseInt(m.qty);
+                            const isIn = q > 0;
+                            return `
+                                <tr>
+                                    <td style="white-space:nowrap;font-size:10px">${m.date || '—'}</td>
+                                    <td style="font-family:'Outfit';font-weight:800;${isIn ? 'color:var(--success)' : 'color:var(--danger)'}">${isIn ? '+' : ''}${q}</td>
+                                    <td><span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;${isIn ? 'background:rgba(16,185,129,0.15);color:var(--success)' : 'background:rgba(239,68,68,0.15);color:var(--danger)'}">${isIn ? 'STOCK IN' : 'STOCK OUT'}</span></td>
+                                    <td style="font-size:10px">${m.remark || m.reference || '—'}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </table>
+                `;
+            } else {
+                html += `<div class="detail-empty"><i class="fa-solid fa-arrow-trend-up"></i><br>No stock movement history found</div>`;
+            }
 
             // Sales Table
             html += `<div class="detail-section-title"><i class="fa-solid fa-cart-shopping"></i> Sales Records (${sc})</div>`;
