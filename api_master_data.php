@@ -1,4 +1,4 @@
-gi<?php
+<?php
 // Modern Master Data API v4.0
 include 'db_connect.php';
 header('Content-Type: application/json');
