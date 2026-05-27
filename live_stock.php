@@ -166,6 +166,104 @@
         .text-warn { color: var(--warn); }
         .text-danger { color: var(--danger); }
 
+        /* 🪟 Software Detail Drawer */
+        .detail-overlay {
+            position: fixed; inset: 0; z-index: 2000;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+            display: none; animation: fadeIn 0.25s ease;
+        }
+        .detail-overlay.open { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .detail-drawer {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 2001;
+            max-height: 85vh; overflow-y: auto;
+            background: rgba(10, 14, 23, 0.96); backdrop-filter: blur(30px);
+            border: 1px solid var(--border); border-radius: 24px 24px 0 0;
+            padding: 0 0 30px; transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+            box-shadow: 0 -20px 60px rgba(0,0,0,0.6);
+        }
+        .detail-drawer.open { transform: translateY(0); }
+
+        .detail-handle {
+            width: 40px; height: 4px; border-radius: 99px;
+            background: rgba(255,255,255,0.15); margin: 10px auto 6px;
+        }
+        .detail-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 20px 15px; border-bottom: 1px solid var(--border);
+        }
+        .detail-header h2 {
+            font-size: 16px; font-weight: 800; font-family: 'Outfit';
+            display: flex; align-items: center; gap: 10px;
+        }
+        .detail-header .close-btn {
+            width: 36px; height: 36px; border-radius: 50%; border: none;
+            background: rgba(255,255,255,0.06); color: white; font-size: 18px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s;
+        }
+        .detail-header .close-btn:hover { background: rgba(239,68,68,0.2); color: var(--danger); }
+
+        .detail-body { padding: 16px 20px; }
+
+        /* Summary mini-cards inside drawer */
+        .detail-summary {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;
+        }
+        .detail-summary .d-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 16px; padding: 14px; text-align: center;
+        }
+        .detail-summary .d-card .d-label {
+            font-size: 8px; font-weight: 800; text-transform: uppercase;
+            color: var(--text-muted); letter-spacing: 1px;
+        }
+        .detail-summary .d-card .d-val {
+            font-size: 20px; font-weight: 800; font-family: 'Outfit'; margin-top: 4px;
+        }
+        .detail-summary .d-card .d-sub {
+            font-size: 9px; color: var(--text-muted); margin-top: 2px;
+        }
+
+        .detail-section-title {
+            font-size: 10px; font-weight: 800; text-transform: uppercase;
+            color: var(--primary); letter-spacing: 1.5px; margin: 20px 0 10px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .detail-section-title::after {
+            content: ''; flex: 1; height: 1px; background: var(--border);
+        }
+
+        .detail-table { width: 100%; border-collapse: collapse; }
+        .detail-table th {
+            text-align: left; font-size: 8px; text-transform: uppercase;
+            color: var(--text-muted); padding: 10px 8px 6px;
+            letter-spacing: 1px; border-bottom: 1px solid var(--border);
+        }
+        .detail-table td {
+            padding: 10px 8px; font-size: 11px; border-bottom: 1px solid rgba(255,255,255,0.03);
+            vertical-align: middle;
+        }
+        .detail-table tr:last-child td { border-bottom: none; }
+
+        .detail-empty {
+            text-align: center; padding: 30px 10px; color: var(--text-muted);
+            font-size: 12px;
+        }
+        .detail-empty i { font-size: 28px; margin-bottom: 8px; opacity: 0.4; }
+
+        .stock-card.clickable { cursor: pointer; }
+        .stock-card.clickable:active { transform: scale(0.97); }
+
+        @media (max-width: 500px) {
+            .detail-drawer { max-height: 90vh; }
+            .detail-summary { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .detail-summary .d-card { padding: 10px; }
+            .detail-summary .d-card .d-val { font-size: 17px; }
+        }
+
         @media (max-width: 500px) {
             .summary-bar { grid-template-columns: 1fr 1fr; }
             .stock-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -212,6 +310,19 @@
         <!-- 📦 Live Stock Grid -->
         <div id="loading" class="loader"><div class="spinner"></div>Syncing Stock Data...</div>
         <div id="content"></div>
+    </div>
+
+    <!-- 🪟 Software Detail Drawer -->
+    <div class="detail-overlay" id="detailOverlay" onclick="closeSoftwareDetail()"></div>
+    <div class="detail-drawer" id="detailDrawer">
+        <div class="detail-handle"></div>
+        <div class="detail-header">
+            <h2><i class="fa-solid fa-cube" style="color:var(--secondary)"></i> <span id="detailTitle">Software</span></h2>
+            <button class="close-btn" onclick="closeSoftwareDetail()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="detail-body" id="detailBody">
+            <div class="loader" style="padding:30px 0"><div class="spinner"></div>Loading Details...</div>
+        </div>
     </div>
 
     <script>
@@ -425,6 +536,134 @@
             document.getElementById(tabId).style.display = 'block';
         }
 
+        // 🪟 Software Detail Drawer
+        function closeSoftwareDetail() {
+            document.getElementById('detailOverlay').classList.remove('open');
+            document.getElementById('detailDrawer').classList.remove('open');
+        }
+
+        async function showSoftwareDetail(name) {
+            const overlay = document.getElementById('detailOverlay');
+            const drawer = document.getElementById('detailDrawer');
+            const title = document.getElementById('detailTitle');
+            const body = document.getElementById('detailBody');
+
+            title.textContent = name;
+            body.innerHTML = '<div class="loader" style="padding:30px 0"><div class="spinner"></div>Loading Details...</div>';
+            overlay.classList.add('open');
+            drawer.classList.add('open');
+
+            try {
+                const res = await fetch('api_master_data.php?action=get_software_sales_detail&software_name=' + encodeURIComponent(name));
+                const data = await res.json();
+
+                if (data.status === 'error') {
+                    body.innerHTML = `
+                        <div class="detail-empty">
+                            <i class="fa-solid fa-circle-exclamation" style="color:var(--danger)"></i>
+                            <div style="font-weight:700;margin-top:6px;">${data.error || 'Failed to load details'}</div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const sales = data.sales || [];
+                const renewals = data.renewals || [];
+                const sc = data.sales_count || 0;
+                const rc = data.renewals_count || 0;
+                const stock = data.current_stock || 0;
+                const totalAmt = data.sales_total_amount || 0;
+                const paidAmt = data.sales_paid_amount || 0;
+                const renewTotal = data.renewals_total || 0;
+
+                let html = '';
+
+                // Summary mini-cards
+                html += `
+                    <div class="detail-summary">
+                        <div class="d-card" style="border-left:3px solid var(--secondary);">
+                            <div class="d-label">In Stock</div>
+                            <div class="d-val" style="color:var(--secondary)">${stock}</div>
+                            <div class="d-sub">Current Quantity</div>
+                        </div>
+                        <div class="d-card" style="border-left:3px solid var(--success);">
+                            <div class="d-label">Sales</div>
+                            <div class="d-val" style="color:var(--success)">${sc}</div>
+                            <div class="d-sub">${formatCurrency(totalAmt)} total · ${formatCurrency(paidAmt)} paid</div>
+                        </div>
+                        <div class="d-card" style="border-left:3px solid var(--warn);">
+                            <div class="d-label">Renewals</div>
+                            <div class="d-val" style="color:var(--warn)">${rc}</div>
+                            <div class="d-sub">${formatCurrency(renewTotal)} collected</div>
+                        </div>
+                        <div class="d-card" style="border-left:3px solid var(--primary);">
+                            <div class="d-label">Total Revenue</div>
+                            <div class="d-val" style="color:var(--primary)">${formatCurrency(paidAmt + renewTotal)}</div>
+                            <div class="d-sub">Sales + Renewals</div>
+                        </div>
+                    </div>
+                `;
+
+                // Sales Table
+                html += `<div class="detail-section-title"><i class="fa-solid fa-cart-shopping"></i> Sales Records (${sc})</div>`;
+                if (sales.length > 0) {
+                    html += `
+                        <table class="detail-table">
+                            <tr><th>Date</th><th>Customer</th><th>Vehicle No</th><th>Amount</th><th>Paid</th></tr>
+                            ${sales.map(s => `
+                                <tr>
+                                    <td style="white-space:nowrap;font-size:10px">${s.invoice_date || '—'}</td>
+                                    <td>
+                                        <div style="font-weight:600">${s.customer_name || '—'}</div>
+                                        <div style="font-size:9px;color:var(--text-muted)">${s.vehicle_no || ''}</div>
+                                    </td>
+                                    <td style="font-family:'Outfit';font-weight:700;letter-spacing:1px;color:var(--secondary)">${s.vehicle_no || '—'}</td>
+                                    <td style="font-family:'Outfit';font-weight:700">${formatCurrency(s.total_amount || 0)}</td>
+                                    <td style="font-family:'Outfit';font-weight:700;color:var(--success)">${formatCurrency(s.paid_amount || 0)}</td>
+                                </tr>
+                            `).join('')}
+                        </table>
+                    `;
+                } else {
+                    html += `<div class="detail-empty"><i class="fa-regular fa-rectangle-list"></i><br>No sales records found for this software</div>`;
+                }
+
+                // Renewals Table
+                html += `<div class="detail-section-title"><i class="fa-solid fa-arrows-rotate"></i> Renewal Records (${rc})</div>`;
+                if (renewals.length > 0) {
+                    html += `
+                        <table class="detail-table">
+                            <tr><th>Date</th><th>Customer</th><th>Vehicle</th><th>Amount</th></tr>
+                            ${renewals.map(r => `
+                                <tr>
+                                    <td style="white-space:nowrap;font-size:10px">${r.date || '—'}</td>
+                                    <td>
+                                        <div style="font-weight:600">${r.customer_name || r.customer || '—'}</div>
+                                        <div style="font-size:9px;color:var(--text-muted)">${r.mobile_no || ''}</div>
+                                    </td>
+                                    <td style="font-family:'Outfit';font-weight:700;letter-spacing:1px;color:var(--secondary)">${r.vehicle || r.vehicle_no || '—'}</td>
+                                    <td style="font-family:'Outfit';font-weight:700">${formatCurrency(r.amount || r.received_amount || 0)}</td>
+                                </tr>
+                            `).join('')}
+                        </table>
+                    `;
+                } else {
+                    html += `<div class="detail-empty"><i class="fa-solid fa-arrows-rotate"></i><br>No renewal records found</div>`;
+                }
+
+                body.innerHTML = html;
+
+            } catch (e) {
+                body.innerHTML = `
+                    <div class="detail-empty">
+                        <i class="fa-solid fa-wifi-slash" style="color:var(--danger);font-size:32px"></i>
+                        <div style="font-weight:700;margin-top:6px;">Connection Error</div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Failed to load software details</div>
+                    </div>
+                `;
+            }
+        }
+
         // Enter key to trace
         document.getElementById('imeiInput').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') traceIMEI();
@@ -478,6 +717,7 @@
                     if (!it || !it.name) return; // Skip invalid entries
                     
                     const type = (it.type || '').toUpperCase();
+                    const isSoftware = type === 'SOFTWARE' || type === 'RELAY' || type === 'TOOL';
                     if(type !== lastType) {
                         if(html !== "") html += `</div>`; // Close previous grid
                         html += `<div class="cat-label">${type || 'ITEM'}S</div><div class="stock-grid">`;
@@ -500,12 +740,15 @@
                     if (isCritical) { cardClass = 'critical'; alertChip = '<div class="alert-chip critical">🔥 Critical</div>'; }
                     else if (isLow) { cardClass = 'low'; alertChip = '<div class="alert-chip low">⚠️ Low</div>'; }
 
+                    const clickableClass = isSoftware ? 'clickable' : '';
+                    const clickAttr = isSoftware ? `onclick="showSoftwareDetail('${it.name.replace(/'/g, "\\'")}')"` : '';
                     html += `
-                        <div class="stock-card ${cardClass}" style="${isNegative ? 'border-color: var(--danger); background: rgba(239, 68, 68, 0.05);' : ''}">
+                        <div class="stock-card ${cardClass} ${clickableClass}" ${clickAttr} style="${isNegative ? 'border-color: var(--danger); background: rgba(239, 68, 68, 0.05);' : ''}">
                             ${alertChip}
                             <div class="name">${it.name}</div>
                             <div class="val ${isNegative ? 'text-danger' : ''}" data-target="${qty}">0</div>
                             <div class="type">${it.type}</div>
+                            ${isSoftware ? '<div style="font-size:8px;color:var(--primary);margin-top:2px;display:flex;align-items:center;gap:4px"><i class="fa-solid fa-magnifying-glass"></i> Click to view sales</div>' : ''}
                         </div>
                     `;
                 });

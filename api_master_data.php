@@ -781,6 +781,72 @@ switch($action) {
         }
         break;
 
+    case 'get_software_sales_detail':
+        // 📦 Detailed sales/renewal info for a software item (clicked from live stock)
+        try {
+            $softwareName = trim($_GET['software_name'] ?? '');
+            if (!$softwareName) {
+                echo json_encode(['status' => 'error', 'error' => 'Software name required']);
+                break;
+            }
+
+            // Detect columns in renewal_log (software vs software_type, received_amount vs amount)
+            $colCheck = $conn->query("DESCRIBE renewal_log");
+            $renewCols = $colCheck->fetchAll(PDO::FETCH_COLUMN);
+            $swCol = in_array('software', $renewCols) ? 'software' : (in_array('software_type', $renewCols) ? 'software_type' : null);
+            $amtCol = in_array('received_amount', $renewCols) ? 'received_amount' : (in_array('amount', $renewCols) ? 'amount' : null);
+
+            // 1️⃣ Sales from invoice_log
+            $stmt = $conn->prepare("SELECT invoice_no, invoice_date, customer_name, mobile_number, vehicle_no, total_amount, paid_amount FROM invoice_log WHERE software = ? ORDER BY invoice_date DESC");
+            $stmt->execute([$softwareName]);
+            $sales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 2️⃣ Renewals from renewal_log (with dynamic column detection)
+            $renewals = [];
+            if ($swCol) {
+                $stmtR = $conn->prepare("SELECT * FROM renewal_log WHERE $swCol = ? ORDER BY date DESC");
+                $stmtR->execute([$softwareName]);
+                $renewals = $stmtR->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            // 3️⃣ Current stock info from stock_ledger
+            $stmtStock = $conn->prepare("SELECT COALESCE(SUM(CAST(qty AS SIGNED)), 0) as current_stock FROM stock_ledger WHERE item_name = ?");
+            $stmtStock->execute([$softwareName]);
+            $stock = $stmtStock->fetch(PDO::FETCH_ASSOC);
+
+            // Calculate sales totals
+            $totalSales = count($sales);
+            $totalRevenue = 0;
+            $totalPaid = 0;
+            foreach ($sales as $s) {
+                $totalRevenue += (float)($s['total_amount'] ?? 0);
+                $totalPaid += (float)($s['paid_amount'] ?? 0);
+            }
+
+            // Calculate renewal totals
+            $totalRenewals = count($renewals);
+            $totalRenewalAmt = 0;
+            foreach ($renewals as $r) {
+                $totalRenewalAmt += (float)(($r[$amtCol] ?? $r['amount'] ?? 0));
+            }
+
+            echo json_encode([
+                'status' => 'success',
+                'software_name' => $softwareName,
+                'current_stock' => (int)($stock['current_stock'] ?? 0),
+                'sales_count' => $totalSales,
+                'sales_total_amount' => $totalRevenue,
+                'sales_paid_amount' => $totalPaid,
+                'sales' => $sales,
+                'renewals_count' => $totalRenewals,
+                'renewals_total' => $totalRenewalAmt,
+                'renewals' => $renewals
+            ]);
+        } catch (Exception $e) {
+            echo json_encode(['status' => 'error', 'error' => $e->getMessage()]);
+        }
+        break;
+
     default:
         echo json_encode(['status' => 'ready']);
         break;

@@ -57,17 +57,18 @@ switch ($action) {
             }
             // === NEW: Software Renewal Summary ===
             elseif ($type === 'software_renewal_summary') {
-                // Detect which software column exists in renewal_log
+                // Detect which columns exist in renewal_log
                 $colCheck = $conn->query("DESCRIBE renewal_log");
                 $renewCols = $colCheck->fetchAll(PDO::FETCH_COLUMN);
-                $swCol = in_array('software', $renewCols) ? 'software' : (in_array('software_type', $renewCols) ? 'software_type' : 'NULL');
+                $swCol = in_array('software', $renewCols) ? 'software' : (in_array('software_type', $renewCols) ? 'software_type' : "'N/A'");
+                $amtCol = in_array('received_amount', $renewCols) ? 'received_amount' : (in_array('amount', $renewCols) ? 'amount' : '0');
                 
                 $stmt = $conn->prepare("
                     SELECT
                         COALESCE($swCol, 'N/A') AS 'Software Name',
                         COUNT(*) AS 'Renewal Count',
                         SUM(COALESCE(amount, 0)) AS 'Total Amount',
-                        SUM(COALESCE(received_amount, 0)) AS 'Received Amount',
+                        SUM(COALESCE($amtCol, 0)) AS 'Received Amount',
                         MIN(date) AS 'First Renewal Date',
                         MAX(date) AS 'Last Renewal Date'
                     FROM renewal_log
@@ -96,17 +97,18 @@ switch ($action) {
                     $salesData[$r['software_name']] = $r;
                 }
 
-                // Detect which software column exists in renewal_log
+                // Detect which columns exist in renewal_log
                 $colCheck2 = $conn->query("DESCRIBE renewal_log");
                 $renewCols2 = $colCheck2->fetchAll(PDO::FETCH_COLUMN);
                 $swCol2 = in_array('software', $renewCols2) ? 'software' : (in_array('software_type', $renewCols2) ? 'software_type' : "'N/A'");
+                $amtCol2 = in_array('received_amount', $renewCols2) ? 'received_amount' : (in_array('amount', $renewCols2) ? 'amount' : '0');
                 
                 // Renewals by software
                 $stmtRenew = $conn->prepare("
                     SELECT
                         COALESCE($swCol2, 'N/A') AS software_name,
                         COUNT(*) AS renewal_count,
-                        SUM(COALESCE(received_amount, 0)) AS renewal_received
+                        SUM(COALESCE($amtCol2, 0)) AS renewal_received
                     FROM renewal_log
                     WHERE date BETWEEN ? AND ?
                     GROUP BY COALESCE($swCol2, 'N/A')
