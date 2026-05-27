@@ -847,6 +847,81 @@ switch($action) {
         }
         break;
 
+    case 'get_device_stock_detail':
+        // 📱 Detailed stock info for a device model (clicked from live stock)
+        try {
+            $modelName = trim($_GET['model_name'] ?? '');
+            if (!$modelName) {
+                echo json_encode(['status' => 'error', 'error' => 'Device model name required']);
+                break;
+            }
+
+            // 1️⃣ Get all IMEIs grouped by status
+            $stmt = $conn->prepare("SELECT status, COUNT(*) as count FROM device_master WHERE device_model = ? GROUP BY status");
+            $stmt->execute([$modelName]);
+            $statusRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $inStock = 0; $sold = 0; $returned = 0;
+            foreach ($statusRows as $r) {
+                $s = strtolower(trim($r['status']));
+                if ($s === 'in stock') $inStock = (int)$r['count'];
+                elseif ($s === 'sold') $sold = (int)$r['count'];
+                elseif (strpos($s, 'return') !== false) $returned += (int)$r['count'];
+            }
+            $total = $inStock + $sold + $returned;
+
+            // 2️⃣ Recent additions (last 30)
+            $stmt = $conn->prepare("SELECT imei, supplier_name, date, rate, sl_no, status FROM device_master WHERE device_model = ? ORDER BY date DESC, id DESC LIMIT 30");
+            $stmt->execute([$modelName]);
+            $recentAdditions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // 3️⃣ Sales records via invoice_log
+            $stmt = $conn->prepare("SELECT imei FROM device_master WHERE device_model = ?");
+            $stmt->execute([$modelName]);
+            $imeis = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            $sales = [];
+            if (!empty($imeis)) {
+                // Process in chunks of 100 to avoid query size limits
+                $chunks = array_chunk($imeis, 100);
+                foreach ($chunks as $chunk) {
+                    $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+                    $stmt = $conn->prepare("SELECT invoice_no, invoice_date, customer_name, vehicle_no, total_amount, paid_amount, imei FROM invoice_log WHERE imei IN ($placeholders) ORDER BY invoice_date DESC");
+                    $stmt->execute($chunk);
+                    $sales = array_merge($sales, $stmt->fetchAll(PDO::FETCH_ASSOC));
+                }
+                // Sort by date descending
+                usort($sales, function($a, $b) {
+                    return ($b['invoice_date'] ?? '') <=> ($a['invoice_date'] ?? '');
+                });
+            }
+
+            // Calculate totals
+            $totalRevenue = 0;
+            $totalPaid = 0;
+            foreach ($sales as $s) {
+                $totalRevenue += (float)($s['total_amount'] ?? 0);
+                $totalPaid += (float)($s['paid_amount'] ?? 0);
+            }
+
+            echo json_encode([
+                'status' => 'success',
+                'model_name' => $modelName,
+                'in_stock' => $inStock,
+                'sold' => $sold,
+                'returned' => $returned,
+                'total' => $total,
+                'recent_additions' => $recentAdditions,
+                'additions_count' => count($recentAdditions),
+                'sales' => $sales,
+                'sales_count' => count($sales),
+                'sales_total_amount' => $totalRevenue,
+                'sales_paid_amount' => $totalPaid
+            ]);
+        } catch (Exception $e) {
+            echo json_encode(['status' => 'error', 'error' => $e->getMessage()]);
+        }
+        break;
+
     default:
         echo json_encode(['status' => 'ready']);
         break;

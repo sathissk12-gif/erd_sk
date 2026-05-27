@@ -542,7 +542,7 @@
             document.getElementById('detailDrawer').classList.remove('open');
         }
 
-        async function showSoftwareDetail(name) {
+        async function showStockDetail(name, type) {
             const overlay = document.getElementById('detailOverlay');
             const drawer = document.getElementById('detailDrawer');
             const title = document.getElementById('detailTitle');
@@ -554,114 +554,222 @@
             drawer.classList.add('open');
 
             try {
-                const res = await fetch('api_master_data.php?action=get_software_sales_detail&software_name=' + encodeURIComponent(name));
-                const data = await res.json();
-
-                if (data.status === 'error') {
-                    body.innerHTML = `
-                        <div class="detail-empty">
-                            <i class="fa-solid fa-circle-exclamation" style="color:var(--danger)"></i>
-                            <div style="font-weight:700;margin-top:6px;">${data.error || 'Failed to load details'}</div>
-                        </div>
-                    `;
-                    return;
-                }
-
-                const sales = data.sales || [];
-                const renewals = data.renewals || [];
-                const sc = data.sales_count || 0;
-                const rc = data.renewals_count || 0;
-                const stock = data.current_stock || 0;
-                const totalAmt = data.sales_total_amount || 0;
-                const paidAmt = data.sales_paid_amount || 0;
-                const renewTotal = data.renewals_total || 0;
-
-                let html = '';
-
-                // Summary mini-cards
-                html += `
-                    <div class="detail-summary">
-                        <div class="d-card" style="border-left:3px solid var(--secondary);">
-                            <div class="d-label">In Stock</div>
-                            <div class="d-val" style="color:var(--secondary)">${stock}</div>
-                            <div class="d-sub">Current Quantity</div>
-                        </div>
-                        <div class="d-card" style="border-left:3px solid var(--success);">
-                            <div class="d-label">Sales</div>
-                            <div class="d-val" style="color:var(--success)">${sc}</div>
-                            <div class="d-sub">${formatCurrency(totalAmt)} total · ${formatCurrency(paidAmt)} paid</div>
-                        </div>
-                        <div class="d-card" style="border-left:3px solid var(--warn);">
-                            <div class="d-label">Renewals</div>
-                            <div class="d-val" style="color:var(--warn)">${rc}</div>
-                            <div class="d-sub">${formatCurrency(renewTotal)} collected</div>
-                        </div>
-                        <div class="d-card" style="border-left:3px solid var(--primary);">
-                            <div class="d-label">Total Revenue</div>
-                            <div class="d-val" style="color:var(--primary)">${formatCurrency(paidAmt + renewTotal)}</div>
-                            <div class="d-sub">Sales + Renewals</div>
-                        </div>
-                    </div>
-                `;
-
-                // Sales Table
-                html += `<div class="detail-section-title"><i class="fa-solid fa-cart-shopping"></i> Sales Records (${sc})</div>`;
-                if (sales.length > 0) {
-                    html += `
-                        <table class="detail-table">
-                            <tr><th>Date</th><th>Customer</th><th>Vehicle No</th><th>Amount</th><th>Paid</th></tr>
-                            ${sales.map(s => `
-                                <tr>
-                                    <td style="white-space:nowrap;font-size:10px">${s.invoice_date || '—'}</td>
-                                    <td>
-                                        <div style="font-weight:600">${s.customer_name || '—'}</div>
-                                        <div style="font-size:9px;color:var(--text-muted)">${s.vehicle_no || ''}</div>
-                                    </td>
-                                    <td style="font-family:'Outfit';font-weight:700;letter-spacing:1px;color:var(--secondary)">${s.vehicle_no || '—'}</td>
-                                    <td style="font-family:'Outfit';font-weight:700">${formatCurrency(s.total_amount || 0)}</td>
-                                    <td style="font-family:'Outfit';font-weight:700;color:var(--success)">${formatCurrency(s.paid_amount || 0)}</td>
-                                </tr>
-                            `).join('')}
-                        </table>
-                    `;
+                if (type === 'software') {
+                    await showSoftwareDetail(name, body);
                 } else {
-                    html += `<div class="detail-empty"><i class="fa-regular fa-rectangle-list"></i><br>No sales records found for this software</div>`;
+                    await showDeviceDetail(name, body);
                 }
-
-                // Renewals Table
-                html += `<div class="detail-section-title"><i class="fa-solid fa-arrows-rotate"></i> Renewal Records (${rc})</div>`;
-                if (renewals.length > 0) {
-                    html += `
-                        <table class="detail-table">
-                            <tr><th>Date</th><th>Customer</th><th>Vehicle</th><th>Amount</th></tr>
-                            ${renewals.map(r => `
-                                <tr>
-                                    <td style="white-space:nowrap;font-size:10px">${r.date || '—'}</td>
-                                    <td>
-                                        <div style="font-weight:600">${r.customer_name || r.customer || '—'}</div>
-                                        <div style="font-size:9px;color:var(--text-muted)">${r.mobile_no || ''}</div>
-                                    </td>
-                                    <td style="font-family:'Outfit';font-weight:700;letter-spacing:1px;color:var(--secondary)">${r.vehicle || r.vehicle_no || '—'}</td>
-                                    <td style="font-family:'Outfit';font-weight:700">${formatCurrency(r.amount || r.received_amount || 0)}</td>
-                                </tr>
-                            `).join('')}
-                        </table>
-                    `;
-                } else {
-                    html += `<div class="detail-empty"><i class="fa-solid fa-arrows-rotate"></i><br>No renewal records found</div>`;
-                }
-
-                body.innerHTML = html;
-
             } catch (e) {
                 body.innerHTML = `
                     <div class="detail-empty">
                         <i class="fa-solid fa-wifi-slash" style="color:var(--danger);font-size:32px"></i>
                         <div style="font-weight:700;margin-top:6px;">Connection Error</div>
-                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Failed to load software details</div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Failed to load details</div>
                     </div>
                 `;
             }
+        }
+
+        // 📦 Software Detail (sales + renewals)
+        async function showSoftwareDetail(name, body) {
+            const res = await fetch('api_master_data.php?action=get_software_sales_detail&software_name=' + encodeURIComponent(name));
+            const data = await res.json();
+
+            if (data.status === 'error') {
+                body.innerHTML = `
+                    <div class="detail-empty">
+                        <i class="fa-solid fa-circle-exclamation" style="color:var(--danger)"></i>
+                        <div style="font-weight:700;margin-top:6px;">${data.error || 'Failed to load details'}</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const sales = data.sales || [];
+            const renewals = data.renewals || [];
+            const sc = data.sales_count || 0;
+            const rc = data.renewals_count || 0;
+            const stock = data.current_stock || 0;
+            const totalAmt = data.sales_total_amount || 0;
+            const paidAmt = data.sales_paid_amount || 0;
+            const renewTotal = data.renewals_total || 0;
+
+            let html = '';
+
+            // Summary mini-cards
+            html += `
+                <div class="detail-summary">
+                    <div class="d-card" style="border-left:3px solid var(--secondary);">
+                        <div class="d-label">In Stock</div>
+                        <div class="d-val" style="color:var(--secondary)">${stock}</div>
+                        <div class="d-sub">Current Quantity</div>
+                    </div>
+                    <div class="d-card" style="border-left:3px solid var(--success);">
+                        <div class="d-label">Sales</div>
+                        <div class="d-val" style="color:var(--success)">${sc}</div>
+                        <div class="d-sub">${formatCurrency(totalAmt)} total · ${formatCurrency(paidAmt)} paid</div>
+                    </div>
+                    <div class="d-card" style="border-left:3px solid var(--warn);">
+                        <div class="d-label">Renewals</div>
+                        <div class="d-val" style="color:var(--warn)">${rc}</div>
+                        <div class="d-sub">${formatCurrency(renewTotal)} collected</div>
+                    </div>
+                    <div class="d-card" style="border-left:3px solid var(--primary);">
+                        <div class="d-label">Total Revenue</div>
+                        <div class="d-val" style="color:var(--primary)">${formatCurrency(paidAmt + renewTotal)}</div>
+                        <div class="d-sub">Sales + Renewals</div>
+                    </div>
+                </div>
+            `;
+
+            // Sales Table
+            html += `<div class="detail-section-title"><i class="fa-solid fa-cart-shopping"></i> Sales Records (${sc})</div>`;
+            if (sales.length > 0) {
+                html += `
+                    <table class="detail-table">
+                        <tr><th>Date</th><th>Customer</th><th>Vehicle No</th><th>Amount</th><th>Paid</th></tr>
+                        ${sales.map(s => `
+                            <tr>
+                                <td style="white-space:nowrap;font-size:10px">${s.invoice_date || '—'}</td>
+                                <td>
+                                    <div style="font-weight:600">${s.customer_name || '—'}</div>
+                                    <div style="font-size:9px;color:var(--text-muted)">${s.mobile_number || ''}</div>
+                                </td>
+                                <td style="font-family:'Outfit';font-weight:700;letter-spacing:1px;color:var(--secondary)">${s.vehicle_no || '—'}</td>
+                                <td style="font-family:'Outfit';font-weight:700">${formatCurrency(s.total_amount || 0)}</td>
+                                <td style="font-family:'Outfit';font-weight:700;color:var(--success)">${formatCurrency(s.paid_amount || 0)}</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                `;
+            } else {
+                html += `<div class="detail-empty"><i class="fa-regular fa-rectangle-list"></i><br>No sales records found for this software</div>`;
+            }
+
+            // Renewals Table
+            html += `<div class="detail-section-title"><i class="fa-solid fa-arrows-rotate"></i> Renewal Records (${rc})</div>`;
+            if (renewals.length > 0) {
+                html += `
+                    <table class="detail-table">
+                        <tr><th>Date</th><th>Customer</th><th>Vehicle</th><th>Amount</th></tr>
+                        ${renewals.map(r => `
+                            <tr>
+                                <td style="white-space:nowrap;font-size:10px">${r.date || '—'}</td>
+                                <td>
+                                    <div style="font-weight:600">${r.customer_name || r.customer || '—'}</div>
+                                    <div style="font-size:9px;color:var(--text-muted)">${r.mobile_no || ''}</div>
+                                </td>
+                                <td style="font-family:'Outfit';font-weight:700;letter-spacing:1px;color:var(--secondary)">${r.vehicle || r.vehicle_no || '—'}</td>
+                                <td style="font-family:'Outfit';font-weight:700">${formatCurrency(r.amount || r.received_amount || 0)}</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                `;
+            } else {
+                html += `<div class="detail-empty"><i class="fa-solid fa-arrows-rotate"></i><br>No renewal records found</div>`;
+            }
+
+            body.innerHTML = html;
+        }
+
+        // 📱 Device Detail (stock additions + sales)
+        async function showDeviceDetail(name, body) {
+            const res = await fetch('api_master_data.php?action=get_device_stock_detail&model_name=' + encodeURIComponent(name));
+            const data = await res.json();
+
+            if (data.status === 'error') {
+                body.innerHTML = `
+                    <div class="detail-empty">
+                        <i class="fa-solid fa-circle-exclamation" style="color:var(--danger)"></i>
+                        <div style="font-weight:700;margin-top:6px;">${data.error || 'Failed to load details'}</div>
+                    </div>
+                `;
+                return;
+            }
+
+            const inStock = data.in_stock || 0;
+            const sold = data.sold || 0;
+            const returned = data.returned || 0;
+            const total = data.total || 0;
+            const additions = data.recent_additions || [];
+            const sales = data.sales || [];
+            const sc = data.sales_count || 0;
+            const totalAmt = data.sales_total_amount || 0;
+            const paidAmt = data.sales_paid_amount || 0;
+
+            let html = '';
+
+            // Summary mini-cards
+            html += `
+                <div class="detail-summary">
+                    <div class="d-card" style="border-left:3px solid var(--success);">
+                        <div class="d-label">In Stock</div>
+                        <div class="d-val" style="color:var(--success)">${inStock}</div>
+                        <div class="d-sub">Available units</div>
+                    </div>
+                    <div class="d-card" style="border-left:3px solid #3b82f6;">
+                        <div class="d-label">Sold</div>
+                        <div class="d-val" style="color:#3b82f6">${sold}</div>
+                        <div class="d-sub">${formatCurrency(paidAmt)} collected</div>
+                    </div>
+                    <div class="d-card" style="border-left:3px solid var(--warn);">
+                        <div class="d-label">Returned</div>
+                        <div class="d-val" style="color:var(--warn)">${returned}</div>
+                        <div class="d-sub">Out of ${total} total</div>
+                    </div>
+                    <div class="d-card" style="border-left:3px solid var(--secondary);">
+                        <div class="d-label">Reduction</div>
+                        <div class="d-val" style="color:var(--secondary)">${total - inStock}</div>
+                        <div class="d-sub">${sold} sold + ${returned} returned</div>
+                    </div>
+                </div>
+            `;
+
+            // Recent Additions Table (last stock added)
+            html += `<div class="detail-section-title"><i class="fa-solid fa-boxes-stacked"></i> Recent Stock Additions (${data.additions_count || 0})</div>`;
+            if (additions.length > 0) {
+                html += `
+                    <table class="detail-table">
+                        <tr><th>Date</th><th>IMEI</th><th>Supplier</th><th>Rate</th><th>Status</th></tr>
+                        ${additions.map(a => `
+                            <tr>
+                                <td style="white-space:nowrap;font-size:10px">${a.date || '—'}</td>
+                                <td style="font-family:'Outfit';font-weight:700;letter-spacing:1px;font-size:10px">${a.imei || '—'}</td>
+                                <td style="font-size:11px">${a.supplier_name || '—'}</td>
+                                <td style="font-family:'Outfit';font-weight:700">${formatCurrency(a.rate || 0)}</td>
+                                <td><span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;${(a.status||'').toLowerCase()==='in stock'?'background:rgba(16,185,129,0.15);color:var(--success)':'background:rgba(59,130,246,0.15);color:#3b82f6'}">${a.status || '—'}</span></td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                `;
+            } else {
+                html += `<div class="detail-empty"><i class="fa-solid fa-boxes-stacked"></i><br>No stock addition records found</div>`;
+            }
+
+            // Sales Records
+            html += `<div class="detail-section-title"><i class="fa-solid fa-cart-shopping"></i> Sales Records (${sc})</div>`;
+            if (sales.length > 0) {
+                html += `
+                    <table class="detail-table">
+                        <tr><th>Date</th><th>Customer</th><th>Vehicle No</th><th>IMEI</th><th>Amount</th></tr>
+                        ${sales.map(s => `
+                            <tr>
+                                <td style="white-space:nowrap;font-size:10px">${s.invoice_date || '—'}</td>
+                                <td>
+                                    <div style="font-weight:600">${s.customer_name || '—'}</div>
+                                </td>
+                                <td style="font-family:'Outfit';font-weight:700;letter-spacing:1px;color:var(--secondary)">${s.vehicle_no || '—'}</td>
+                                <td style="font-family:'Outfit';font-size:10px;letter-spacing:1px;color:var(--text-muted)">${s.imei || '—'}</td>
+                                <td style="font-family:'Outfit';font-weight:700">${formatCurrency(s.total_amount || 0)}<br><span style="font-size:9px;color:var(--success)">Paid: ${formatCurrency(s.paid_amount || 0)}</span></td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                `;
+            } else {
+                html += `<div class="detail-empty"><i class="fa-regular fa-rectangle-list"></i><br>No sales records found for this device model</div>`;
+            }
+
+            body.innerHTML = html;
         }
 
         // Enter key to trace
@@ -717,7 +825,6 @@
                     if (!it || !it.name) return; // Skip invalid entries
                     
                     const type = (it.type || '').toUpperCase();
-                    const isSoftware = type === 'SOFTWARE' || type === 'RELAY' || type === 'TOOL';
                     if(type !== lastType) {
                         if(html !== "") html += `</div>`; // Close previous grid
                         html += `<div class="cat-label">${type || 'ITEM'}S</div><div class="stock-grid">`;
@@ -740,15 +847,20 @@
                     if (isCritical) { cardClass = 'critical'; alertChip = '<div class="alert-chip critical">🔥 Critical</div>'; }
                     else if (isLow) { cardClass = 'low'; alertChip = '<div class="alert-chip low">⚠️ Low</div>'; }
 
-                    const clickableClass = isSoftware ? 'clickable' : '';
-                    const clickAttr = isSoftware ? `onclick="showSoftwareDetail('${it.name.replace(/'/g, "\\'")}')"` : '';
+                    const extraClass = type === 'DEVICE' || type === 'MIXED' ? 'clickable' : 'clickable';
+                    const clickFn = type === 'SOFTWARE' || type === 'RELAY' || type === 'TOOL'
+                        ? `showStockDetail('${it.name.replace(/'/g, "\\'")}', 'software')`
+                        : `showStockDetail('${it.name.replace(/'/g, "\\'")}', 'device')`;
+                    const hint = type === 'DEVICE' || type === 'MIXED'
+                        ? '<div style="font-size:8px;color:var(--secondary);margin-top:2px;display:flex;align-items:center;gap:4px"><i class="fa-solid fa-microchip"></i> Click for stock history</div>'
+                        : '<div style="font-size:8px;color:var(--primary);margin-top:2px;display:flex;align-items:center;gap:4px"><i class="fa-solid fa-magnifying-glass"></i> Click to view sales</div>';
                     html += `
-                        <div class="stock-card ${cardClass} ${clickableClass}" ${clickAttr} style="${isNegative ? 'border-color: var(--danger); background: rgba(239, 68, 68, 0.05);' : ''}">
+                        <div class="stock-card ${cardClass} clickable" onclick="${clickFn}" style="${isNegative ? 'border-color: var(--danger); background: rgba(239, 68, 68, 0.05);' : ''}">
                             ${alertChip}
                             <div class="name">${it.name}</div>
                             <div class="val ${isNegative ? 'text-danger' : ''}" data-target="${qty}">0</div>
                             <div class="type">${it.type}</div>
-                            ${isSoftware ? '<div style="font-size:8px;color:var(--primary);margin-top:2px;display:flex;align-items:center;gap:4px"><i class="fa-solid fa-magnifying-glass"></i> Click to view sales</div>' : ''}
+                            ${hint}
                         </div>
                     `;
                 });
