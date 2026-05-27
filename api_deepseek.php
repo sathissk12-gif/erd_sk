@@ -363,6 +363,39 @@ function askDeepSeek($apiKey, $userQuery, array $context, $localAnswer, array $h
     return trim($decoded['choices'][0]['message']['content'] ?? '');
 }
 
+/**
+ * 🧠 JARVIS: Detect user intent for business actions
+ */
+function detectJarvisIntent($query) {
+    $q = strtolower(trim($query));
+
+    // Send reminders / notify customers
+    if (preg_match('/(send|remind|notify|message|sms|whatsapp).*(renewal|pending|due|customer)/i', $q) ||
+        preg_match('/(renewal|pending|due|customer).*(send|remind|notify|message|sms|whatsapp)/i', $q)) {
+        return 'SEND_REMINDERS';
+    }
+
+    // Check / show renewals
+    if (preg_match('/(check|show|list|find|get).*(renewal|pending|due)/i', $q) ||
+        preg_match('/(renewal|pending|due).*(check|show|list|find|get|status)/i', $q) ||
+        preg_match('/pending.*ethana|due.*ethana/i', $q)) {
+        return 'CHECK_RENEWALS';
+    }
+
+    // Send WhatsApp message
+    if (preg_match('/(send|post|push).*(whatsapp|wa|message)/i', $q) ||
+        preg_match('/whatsapp.*(send|message)/i', $q)) {
+        return 'SEND_WHATSAPP';
+    }
+
+    // Open / navigate to page
+    if (preg_match('/(open|go to|navigate|show|take me).*(dashboard|sales|renewal|stock|dealer|report|invoice)/i', $q)) {
+        return 'SHOW_STATS';
+    }
+
+    return null;
+}
+
 function cleanSql($sql) {
     $sql = preg_replace('/```(sql)?/i', '', $sql);
     $sql = trim($sql, " `\n\r\t;");
@@ -487,11 +520,34 @@ try {
         }
     }
 
+    // 🧠 JARVIS: Detect intent for actions
+    $jarvisIntent = detectJarvisIntent($userQuery);
+    $jarvisData = [];
+
+    if ($jarvisIntent === 'SEND_REMINDERS') {
+        preg_match('/\d+/', $userQuery, $m);
+        $jarvisData = ['days' => $m ? (int)$m[0] : 3];
+        if ($finalAnswer && !strpos($finalAnswer, '[OPEN:SEND_REMINDERS]')) {
+            $finalAnswer .= "\n\nWant me to send WhatsApp reminders to them? 🧠";
+        }
+    } elseif ($jarvisIntent === 'CHECK_RENEWALS') {
+        preg_match('/\d+/', $userQuery, $m);
+        $jarvisData = ['days' => $m ? (int)$m[0] : 7];
+        if ($finalAnswer && !strpos($finalAnswer, '[OPEN:CHECK_RENEWALS]')) {
+            $finalAnswer .= "\n\nWant me to check details? 🧠";
+        }
+    } elseif ($jarvisIntent === 'SEND_WHATSAPP') {
+        preg_match('/\d{10}/', $userQuery, $m);
+        $jarvisData = ['to' => $m[0] ?? '', 'message' => $userQuery];
+    }
+
     echo json_encode([
         'answer' => $finalAnswer ?: "Sorry boss, intha query-ku data kidaikkala. Konjam specific-ah kelunga!",
         'mode' => 'dual-engine-ai',
         'model' => 'deepseek',
-        'debug_sql' => cleanSql($generatedSql)
+        'debug_sql' => cleanSql($generatedSql),
+        'jarvis_intent' => $jarvisIntent,
+        'jarvis_data' => $jarvisData
     ]);
 
 } catch (Exception $e) {

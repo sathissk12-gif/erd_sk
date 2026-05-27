@@ -291,6 +291,98 @@ include 'db_connect.php';
         .network-status.online .dot { background: var(--success); }
         .network-status.offline .dot { background: var(--danger); }
 
+        /* 🎤 Speaker Button */
+        .speaker-btn {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white; font-size: 14px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s;
+        }
+        .speaker-btn.active {
+            background: var(--success);
+            border-color: var(--success);
+            animation: pulse-glow 1.5s infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+        }
+        .speaker-btn.speaking {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        /* 🎯 Action Confirmation Dialog */
+        .confirm-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 2000;
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        .confirm-overlay.active { display: flex; }
+        .confirm-box {
+            background: #1a1e2e; border-radius: 24px; padding: 28px;
+            width: 90%; max-width: 400px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            animation: confirmIn 0.3s ease-out;
+        }
+        @keyframes confirmIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .confirm-box h3 {
+            font-family: 'Outfit'; margin: 0 0 8px 0; font-size: 18px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .confirm-box p {
+            color: var(--text-muted); font-size: 14px; line-height: 1.6;
+            margin: 0 0 20px 0;
+        }
+        .confirm-box .confirm-actions {
+            display: flex; gap: 10px;
+        }
+        .confirm-box .confirm-actions button {
+            flex: 1; padding: 12px 16px; border-radius: 14px;
+            border: none; font-size: 14px; font-weight: bold;
+            cursor: pointer; transition: all 0.3s;
+        }
+        .btn-confirm-yes {
+            background: var(--success); color: white;
+        }
+        .btn-confirm-yes:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+        }
+        .btn-confirm-no {
+            background: rgba(255,255,255,0.1); color: white;
+        }
+        .btn-confirm-no:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* 🎵 Audio Visual Indicator */
+        .audio-indicator {
+            display: inline-flex; align-items: center; gap: 3px;
+            margin-left: 8px; vertical-align: middle;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .audio-indicator.active { opacity: 1; }
+        .audio-indicator span {
+            width: 3px; height: 12px; background: var(--primary);
+            border-radius: 2px; display: inline-block;
+            animation: audioWave 0.6s ease-in-out infinite;
+        }
+        .audio-indicator span:nth-child(2) { animation-delay: 0.1s; }
+        .audio-indicator span:nth-child(3) { animation-delay: 0.2s; }
+        .audio-indicator span:nth-child(4) { animation-delay: 0.3s; }
+        @keyframes audioWave {
+            0%, 100% { height: 8px; }
+            50% { height: 16px; }
+        }
+
         /* 🔲 Inline Table Styling */
         .inline-table {
             width: 100%; border-collapse: collapse;
@@ -335,6 +427,9 @@ include 'db_connect.php';
             </button>
             <button onclick="showExportDialog()" title="Download Reports" style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:50%; width:32px; height:32px; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
                 <i class="fa-solid fa-download"></i>
+            </button>
+            <button id="speakerBtn" class="speaker-btn" onclick="toggleSpeaker()" title="Toggle Voice Output">
+                <i class="fa-solid fa-volume-high"></i>
             </button>
         </div>
     </header>
@@ -390,6 +485,18 @@ include 'db_connect.php';
         </div>
     </div>
 
+    <!-- 🎯 JARVIS Action Confirmation Dialog -->
+    <div class="confirm-overlay" id="confirmModal">
+        <div class="confirm-box">
+            <h3><i class="fa-solid fa-robot"></i> SK JARVIS</h3>
+            <p id="confirmMessage">Boss, shall I proceed?</p>
+            <div class="confirm-actions">
+                <button class="btn-confirm-no" onclick="cancelAction()">Cancel</button>
+                <button class="btn-confirm-yes" onclick="confirmAction()"><i class="fa-solid fa-check"></i> Execute</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ============================================
         // STATE
@@ -407,7 +514,250 @@ include 'db_connect.php';
         let sessionMessages = []; // For typing effect tracking
         let isProcessing = false;
 
+        // 🧠 JARVIS STATE
+        let jarvisSpeakerOn = localStorage.getItem('sk_jarvis_speaker') === 'on';
+        let jarvisUtterance = null;
+        let pendingAction = null; // For action confirmation
+
         aiModelSelect.value = currentModel;
+
+        // ============================================
+        // 🎤 JARVIS: TEXT-TO-SPEECH
+        // ============================================
+        function toggleSpeaker() {
+            jarvisSpeakerOn = !jarvisSpeakerOn;
+            localStorage.setItem('sk_jarvis_speaker', jarvisSpeakerOn ? 'on' : 'off');
+            const btn = document.getElementById('speakerBtn');
+            btn.className = 'speaker-btn' + (jarvisSpeakerOn ? ' active' : '');
+            btn.innerHTML = jarvisSpeakerOn ? '<i class="fa-solid fa-volume-high"></i>' : '<i class="fa-solid fa-volume-xmark"></i>';
+            if (!jarvisSpeakerOn && jarvisUtterance) {
+                window.speechSynthesis.cancel();
+                jarvisUtterance = null;
+            }
+            if (jarvisSpeakerOn) {
+                addMessage('🔊 JARVIS voice ON. I will speak responses to you boss!', 'ai');
+            } else {
+                addMessage('🔇 JARVIS voice OFF.', 'ai');
+            }
+        }
+
+        function speakText(text) {
+            if (!jarvisSpeakerOn) return;
+            if (!window.speechSynthesis) return;
+            
+            // Cancel any ongoing speech
+            window.speechSynthesis.cancel();
+            
+            // Extract clean text (remove HTML, markdown links, OPEN tags)
+            const cleanText = text
+                .replace(/<[^>]*>/g, '')
+                .replace(/\[OPEN:[^\]]+\]/g, '')
+                .replace(/\*\*/g, '')
+                .replace(/\n/g, ' ')
+                .trim();
+            
+            if (!cleanText) return;
+
+            // Use 1-2 sentences max for speech
+            const sentences = cleanText.match(/[^.!?\n]+[.!?]/g) || [cleanText];
+            const speechText = sentences.slice(0, 2).join(' ');
+            
+            try {
+                jarvisUtterance = new SpeechSynthesisUtterance(speechText);
+                jarvisUtterance.rate = 1.0;
+                jarvisUtterance.pitch = 1.1;
+                jarvisUtterance.volume = 1.0;
+                
+                // Try Indian English voice
+                const voices = window.speechSynthesis.getVoices();
+                const indianVoice = voices.find(v => v.lang.includes('en-IN'));
+                if (indianVoice) jarvisUtterance.voice = indianVoice;
+                
+                // Visual indicator: add audio wave to last AI message
+                const lastMsg = chatBox.querySelector('.msg-ai:last-child .msg-content');
+                if (lastMsg) {
+                    const wave = document.createElement('span');
+                    wave.className = 'audio-indicator active';
+                    wave.innerHTML = '<span></span><span></span><span></span><span></span>';
+                    lastMsg.appendChild(wave);
+                    
+                    jarvisUtterance.onend = () => {
+                        wave.className = 'audio-indicator';
+                        jarvisUtterance = null;
+                    };
+                }
+                
+                window.speechSynthesis.speak(jarvisUtterance);
+            } catch (e) {
+                console.log('TTS error:', e);
+            }
+        }
+
+        // Pre-load voices
+        if (window.speechSynthesis) {
+            window.speechSynthesis.getVoices(); // Trigger load
+            window.speechSynthesis.onvoiceschanged = () => {
+                window.speechSynthesis.getVoices();
+            };
+        }
+
+        // ============================================
+        // 🧠 JARVIS: PROACTIVE GREETING
+        // ============================================
+        async function loadDailyBriefing() {
+            try {
+                const res = await fetch('api_jarvis_action.php?action=daily_briefing');
+                const data = await res.json();
+                if (!data.success) return;
+                
+                const d = data.data;
+                const hour = new Date().getHours();
+                let greeting = 'Vanakkam boss! 🙏 ';
+                
+                if (hour < 12) greeting += 'Good morning! ';
+                else if (hour < 17) greeting += 'Good afternoon! ';
+                else greeting += 'Good evening! ';
+                
+                greeting += `SK JARVIS ready.\n\n📊 **Today's Brief** (${d.day_name})\n`;
+                greeting += `• Collection: ₹${d.today_sales_amount.toLocaleString()} (${d.today_sales_count} sales)\n`;
+                greeting += `• This Month: ₹${d.month_sales_amount.toLocaleString()} | Profit: ₹${d.month_profit.toLocaleString()}\n`;
+                greeting += `• Renewals Due: ${d.due_today} today | ${d.due_tomorrow} tomorrow\n`;
+                greeting += `• Pending Total: ${d.pending_renewals_count} (₹${d.pending_renewals_amount.toLocaleString()})\n`;
+                greeting += `• Stock: ${d.stock_count} devices\n`;
+                
+                if (d.top_dealer !== 'N/A') {
+                    greeting += `• Top Dealer: ${d.top_dealer} (${d.top_dealer_count} devices)\n\n`;
+                } else {
+                    greeting += '\n';
+                }
+                
+                greeting += 'Ask me anything about sales, renewals, stock or dealers! 🚀';
+                
+                addMessage(greeting, 'ai');
+                chatHistory.push({ side: 'ai', text: greeting, time: getTimeLabel() });
+                saveChatHistory();
+                
+                // Speak greeting if speaker is on
+                if (jarvisSpeakerOn) {
+                    const shortGreeting = `Vanakkam boss! ${d.day_name} la ${d.today_sales_count} sales, ₹${d.today_sales_amount.toLocaleString()} collection. ${d.due_today} renewals due today.`;
+                    setTimeout(() => speakText(shortGreeting), 500);
+                }
+            } catch (e) {
+                console.log('Briefing error:', e);
+            }
+        }
+
+        // ============================================
+        // 🎯 JARVIS: ACTION CONFIRMATION
+        // ============================================
+        function askConfirmation(message, actionCallback) {
+            document.getElementById('confirmMessage').innerHTML = message;
+            document.getElementById('confirmModal').classList.add('active');
+            pendingAction = actionCallback;
+        }
+
+        function confirmAction() {
+            document.getElementById('confirmModal').classList.remove('active');
+            if (typeof pendingAction === 'function') {
+                pendingAction();
+                pendingAction = null;
+            }
+        }
+
+        function cancelAction() {
+            document.getElementById('confirmModal').classList.remove('active');
+            pendingAction = null;
+            addMessage('✅ Cancelled boss! Anything else?', 'ai');
+        }
+
+        // ============================================
+        // 🔗 JARVIS: EXECUTE ACTION FROM AI
+        // ============================================
+        async function executeJarvisAction(actionType, params) {
+            const url = new URL('api_jarvis_action.php', window.location.href);
+            url.searchParams.set('action', actionType);
+            for (const [k, v] of Object.entries(params || {})) {
+                url.searchParams.set(k, v);
+            }
+            
+            const res = await fetch(url.toString());
+            return await res.json();
+        }
+
+        function handleJarvisIntent(intent, data) {
+            if (!intent) return;
+            
+            switch (intent) {
+                case 'OPEN_PAGE':
+                    if (data.url) {
+                        window.location.href = data.url;
+                    }
+                    break;
+                    
+                case 'SEND_REMINDERS':
+                    askConfirmation(
+                        `📱 Send WhatsApp reminders to <b>${data.count || 'all'}</b> pending renewal customers?`,
+                        async () => {
+                            addMessage('⏳ Sending reminders...', 'ai');
+                            const result = await executeJarvisAction('remind_renewals', { days: data.days || 3 });
+                            if (result.success) {
+                                addMessage(`✅ Done! ${result.sent} reminders sent via WhatsApp. ${result.failed} failed.`, 'ai');
+                                speakText(`${result.sent} reminders sent successfully boss.`);
+                            } else {
+                                addMessage('❌ Failed to send reminders.', 'ai');
+                            }
+                        }
+                    );
+                    break;
+                    
+                case 'CHECK_RENEWALS':
+                    askConfirmation(
+                        `🔔 Check renewals due in next <b>${data.days || 7}</b> days?`,
+                        async () => {
+                            addMessage('⏳ Checking renewals...', 'ai');
+                            const result = await executeJarvisAction('check_renewals', { days: data.days || 7 });
+                            if (result.success && result.count > 0) {
+                                let msg = `📋 Found ${result.count} renewals due in ${result.days} days:\n\n`;
+                                result.data.forEach(r => {
+                                    msg += `• ${r.vehicle_no} | ${r.customer_name} | Due: ${r.valid_to} | ₹${parseInt(r.amount).toLocaleString()}\n`;
+                                });
+                                msg += '\nWant me to send WhatsApp reminders? [OPEN:SEND_REMINDERS]';
+                                addMessage(msg, 'ai');
+                                speakText(`Found ${result.count} renewals due in ${result.days} days boss.`);
+                            } else {
+                                addMessage('✅ No renewals due in that period boss!', 'ai');
+                            }
+                        }
+                    );
+                    break;
+                    
+                case 'SEND_WHATSAPP':
+                    askConfirmation(
+                        `📱 Send WhatsApp message to <b>${data.to || 'customer'}</b>?<br><small>${data.message || ''}</small>`,
+                        async () => {
+                            addMessage('⏳ Sending WhatsApp...', 'ai');
+                            const result = await executeJarvisAction('send_whatsapp', {
+                                to: data.to,
+                                message: data.message
+                            });
+                            if (result.success) {
+                                addMessage('✅ WhatsApp sent successfully!', 'ai');
+                                speakText('WhatsApp sent boss.');
+                            } else {
+                                addMessage('❌ WhatsApp send failed.', 'ai');
+                            }
+                        }
+                    );
+                    break;
+                    
+                case 'SHOW_STATS':
+                    // Just refresh the stats - handled by AI response directly
+                    break;
+                    
+                default:
+                    console.log('Unknown Jarvis intent:', intent);
+            }
+        }
 
         // ============================================
         // UTILITY FUNCTIONS
@@ -649,10 +999,38 @@ include 'db_connect.php';
                 const data = await res.json();
                 let aiAnswer = data.answer || "Data reply varala.";
 
+                // 🧠 Handle Jarvis action intents from AI response
+                const jarvisIntent = data.jarvis_intent || null;
+                const jarvisData = data.jarvis_data || {};
+
+                if (jarvisIntent) {
+                    // If AI wants to execute an action, show confirmation
+                    handleJarvisIntent(jarvisIntent, jarvisData);
+                }
+
+                // Check for inline action triggers like [OPEN:SEND_REMINDERS]
+                if (aiAnswer.includes('[OPEN:SEND_REMINDERS]')) {
+                    aiAnswer = aiAnswer.replace('[OPEN:SEND_REMINDERS]', '');
+                    setTimeout(() => {
+                        handleJarvisIntent('SEND_REMINDERS', { days: 3 });
+                    }, 500);
+                }
+                if (aiAnswer.includes('[OPEN:CHECK_RENEWALS]')) {
+                    aiAnswer = aiAnswer.replace('[OPEN:CHECK_RENEWALS]', '');
+                    setTimeout(() => {
+                        handleJarvisIntent('CHECK_RENEWALS', { days: 7 });
+                    }, 500);
+                }
+
                 // Use typing effect for AI response
                 const result = await typeMessage(aiAnswer, 'ai');
                 chatHistory.push({ side: 'ai', text: aiAnswer, time: result.time });
                 saveChatHistory();
+
+                // 🎤 Speak AI response if speaker is ON
+                if (jarvisSpeakerOn && !jarvisIntent) {
+                    setTimeout(() => speakText(aiAnswer), 300);
+                }
 
                 // Auto-suggest follow-up chips based on answer content
                 updateContextSuggestions(msg, aiAnswer);
@@ -761,32 +1139,58 @@ include 'db_connect.php';
 
         if (SpeechRecognition) {
             const recognition = new SpeechRecognition();
-            recognition.lang = 'en-IN';
+            // Try Tamil first, fallback to Indian English
+            recognition.lang = 'ta-IN';
             recognition.continuous = false;
             recognition.interimResults = false;
+            let isListening = false;
 
             voiceBtn.onclick = () => {
+                if (isListening) {
+                    recognition.stop();
+                    return;
+                }
+                isListening = true;
+                // Cycle through languages on each press: Tamil -> English -> Tamil
+                recognition.lang = recognition.lang === 'ta-IN' ? 'en-IN' : 'ta-IN';
                 recognition.start();
                 voiceBtn.style.background = 'var(--primary)';
-                voiceBtn.innerHTML = '<i class="fa-solid fa-ear-listen"></i>';
+                voiceBtn.style.borderColor = 'var(--primary)';
+                voiceBtn.innerHTML = '<i class="fa-solid fa-circle" style="color:#ef4444; animation:pulse 1s infinite;"></i>';
+                voiceBtn.title = 'Listening in ' + (recognition.lang === 'ta-IN' ? 'Tamil' : 'English') + '...';
+                
+                // Add status message for first time
+                if (!voiceBtn.dataset.initialized) {
+                    voiceBtn.dataset.initialized = '1';
+                    addMessage('🎤 JARVIS listening! Speak in <b>Tamil</b> or <b>English</b>. Press mic again to toggle language.', 'ai');
+                }
             };
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 userInput.value = transcript;
+                isListening = false;
                 voiceBtn.style.background = 'rgba(255,255,255,0.1)';
+                voiceBtn.style.borderColor = 'rgba(255,255,255,0.2)';
                 voiceBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+                voiceBtn.title = 'Click to speak';
                 sendMessage();
             };
 
             recognition.onerror = () => {
+                isListening = false;
                 voiceBtn.style.background = 'rgba(255,255,255,0.1)';
+                voiceBtn.style.borderColor = 'rgba(255,255,255,0.2)';
                 voiceBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+                voiceBtn.title = 'Click to speak';
             };
             
             recognition.onend = () => {
+                isListening = false;
                 voiceBtn.style.background = 'rgba(255,255,255,0.1)';
+                voiceBtn.style.borderColor = 'rgba(255,255,255,0.2)';
                 voiceBtn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+                voiceBtn.title = 'Click to speak';
             };
         } else {
             voiceBtn.style.display = 'none';
@@ -854,6 +1258,18 @@ include 'db_connect.php';
         // INIT
         // ============================================
         loadChatHistory();
+
+        // 🧠 Initialize Jarvis speaker state
+        if (jarvisSpeakerOn) {
+            const speakerBtn = document.getElementById('speakerBtn');
+            speakerBtn.className = 'speaker-btn active';
+            speakerBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
+        }
+
+        // 🧠 Load proactive daily briefing (only if no existing chat history)
+        if (chatHistory.length <= 1) {
+            setTimeout(() => loadDailyBriefing(), 500);
+        }
 
         // Focus input on load
         setTimeout(() => userInput.focus(), 300);
