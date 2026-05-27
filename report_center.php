@@ -47,6 +47,18 @@
                     <i class="fas fa-sync-alt text-purple-400"></i>
                     <span class="font-semibold whitespace-nowrap">Renewal Report</span>
                 </div>
+                <div onclick="selectReport('software_sales_summary')" id="btn-software_sales_summary" class="report-btn glass-card p-4 flex items-center gap-4 min-w-[180px] lg:min-w-0">
+                    <i class="fas fa-chart-pie text-sky-400"></i>
+                    <span class="font-semibold whitespace-nowrap">Software Sales Summary</span>
+                </div>
+                <div onclick="selectReport('software_renewal_summary')" id="btn-software_renewal_summary" class="report-btn glass-card p-4 flex items-center gap-4 min-w-[180px] lg:min-w-0">
+                    <i class="fas fa-chart-line text-pink-400"></i>
+                    <span class="font-semibold whitespace-nowrap">Software Renewal Summary</span>
+                </div>
+                <div onclick="selectReport('software_combined')" id="btn-software_combined" class="report-btn glass-card p-4 flex items-center gap-4 min-w-[180px] lg:min-w-0">
+                    <i class="fas fa-layer-group text-orange-400"></i>
+                    <span class="font-semibold whitespace-nowrap">Software Combined</span>
+                </div>
                 <div onclick="selectReport('device_stock')" id="btn-device_stock" class="report-btn glass-card p-4 flex items-center gap-4 min-w-[180px] lg:min-w-0">
                     <i class="fas fa-microchip text-emerald-400"></i>
                     <span class="font-semibold whitespace-nowrap">Device Stock</span>
@@ -90,6 +102,9 @@
                     <div class="p-6 border-b border-white/10 flex justify-between items-center">
                         <h2 id="tableTitle" class="text-lg md:text-xl font-semibold">Report Preview</h2>
                         <span id="rowCount" class="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400 font-bold uppercase">0 Records</span>
+                    </div>
+                    <div id="summaryBar" class="hidden p-4 border-b border-white/10 bg-slate-800/30">
+                        <div class="flex flex-wrap gap-4 md:gap-8" id="summaryContent"></div>
                     </div>
                     <div id="loading" class="hidden p-20 flex flex-col items-center gap-4">
                         <div class="loader"></div>
@@ -166,17 +181,58 @@
             }
         }
 
+        const SUMMARY_TYPES = ['software_sales_summary', 'software_renewal_summary', 'software_combined'];
+
+        function formatCurrency(val) {
+            const n = parseFloat(val);
+            if (isNaN(n)) return '₹0';
+            return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+
         function renderTable() {
             const head = document.getElementById('tableHead');
             const body = document.getElementById('tableBody');
             const cardContainer = document.getElementById('mobileCards');
+            const summaryBar = document.getElementById('summaryBar');
+            const summaryContent = document.getElementById('summaryContent');
+            
             document.getElementById('rowCount').innerText = reportData.length + " Records";
 
             if (reportData.length === 0) {
                 head.innerHTML = "";
                 body.innerHTML = '<tr><td colspan="10" class="p-10 text-center text-slate-500 italic">No records found for this period.</td></tr>';
                 cardContainer.innerHTML = '<div class="p-10 text-center text-slate-500 italic">No records found.</div>';
+                summaryBar.classList.add('hidden');
                 return;
+            }
+
+            // Show summary bar for summary report types
+            const isSummary = SUMMARY_TYPES.includes(currentType);
+            if (isSummary) {
+                summaryBar.classList.remove('hidden');
+                const keys = Object.keys(reportData[0]);
+                // Identify numeric columns for summing
+                const numericKeys = keys.filter(k => {
+                    const sample = reportData[0][k];
+                    return !isNaN(parseFloat(sample)) && k !== 'Software Name' && !k.toLowerCase().includes('date');
+                });
+                
+                let html = '';
+                numericKeys.forEach(k => {
+                    const total = reportData.reduce((sum, row) => sum + (parseFloat(row[k]) || 0), 0);
+                    const label = k.replace(/_/g, ' ');
+                    const isCount = label.toLowerCase().includes('count');
+                    const val = isCount ? total.toLocaleString('en-IN') : formatCurrency(total);
+                    html += `
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs uppercase font-bold text-slate-500 tracking-wider">${label}:</span>
+                            <span class="text-sm font-bold text-white font-mono">${val}</span>
+                        </div>
+                    `;
+                });
+                summaryContent.innerHTML = html;
+            } else {
+                summaryBar.classList.add('hidden');
             }
 
             // Headers (Desktop)
@@ -186,27 +242,48 @@
             // Rows (Desktop)
             body.innerHTML = reportData.map(row => `
                 <tr class="hover:bg-slate-800/30 transition">
-                    ${keys.map(k => `<td class="px-6 py-4 text-slate-300">${row[k] || '-'}</td>`).join('')}
+                    ${keys.map(k => {
+                        const val = row[k] || '-';
+                        const isNumeric = !isNaN(parseFloat(val)) && val !== '-' && val !== '';
+                        const displayVal = isNumeric && !k.toLowerCase().includes('date') && !k.toLowerCase().includes('name')
+                            ? (k.toLowerCase().includes('count') ? parseFloat(val).toLocaleString('en-IN') : formatCurrency(val))
+                            : val;
+                        return `<td class="px-6 py-4 text-slate-300">${displayVal}</td>`;
+                    }).join('')}
                 </tr>
             `).join('');
 
             // Cards (Mobile)
             cardContainer.innerHTML = reportData.map(row => `
                 <div class="p-4 space-y-2">
-                    ${keys.slice(0, 4).map(k => `
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="text-slate-500 font-bold uppercase text-[9px] tracking-wider">${k.replace(/_/g, ' ')}</span>
-                            <span class="text-slate-200 font-semibold">${row[k] || '-'}</span>
-                        </div>
-                    `).join('')}
+                    ${keys.slice(0, 4).map(k => {
+                        const val = row[k] || '-';
+                        const isNumeric = !isNaN(parseFloat(val)) && val !== '-' && val !== '';
+                        const displayVal = isNumeric && !k.toLowerCase().includes('date') && !k.toLowerCase().includes('name')
+                            ? (k.toLowerCase().includes('count') ? parseFloat(val).toLocaleString('en-IN') : formatCurrency(val))
+                            : val;
+                        return `
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-500 font-bold uppercase text-[9px] tracking-wider">${k.replace(/_/g, ' ')}</span>
+                                <span class="text-slate-200 font-semibold">${displayVal}</span>
+                            </div>
+                        `;
+                    }).join('')}
                     ${keys.length > 4 ? `
                         <div class="pt-2 border-t border-white/5 flex flex-wrap gap-x-4 gap-y-1">
-                            ${keys.slice(4).map(k => `
-                                <div class="text-[10px]">
-                                    <span class="text-slate-500">${k.replace(/_/g, ' ')}:</span>
-                                    <span class="text-slate-300">${row[k] || '-'}</span>
-                                </div>
-                            `).join('')}
+                            ${keys.slice(4).map(k => {
+                                const val = row[k] || '-';
+                                const isNumeric = !isNaN(parseFloat(val)) && val !== '-' && val !== '';
+                                const displayVal = isNumeric && !k.toLowerCase().includes('date') && !k.toLowerCase().includes('name')
+                                    ? (k.toLowerCase().includes('count') ? parseFloat(val).toLocaleString('en-IN') : formatCurrency(val))
+                                    : val;
+                                return `
+                                    <div class="text-[10px]">
+                                        <span class="text-slate-500">${k.replace(/_/g, ' ')}:</span>
+                                        <span class="text-slate-300">${displayVal}</span>
+                                    </div>
+                                `;
+                            }).join('')}
                         </div>
                     ` : ''}
                 </div>
@@ -215,7 +292,31 @@
 
         function exportToExcel() {
             if (reportData.length === 0) return alert("No data to export!");
-            const worksheet = XLSX.utils.json_to_sheet(reportData);
+            
+            // For summary reports, add a totals row
+            const isSummary = SUMMARY_TYPES.includes(currentType);
+            let exportData = [...reportData];
+            
+            if (isSummary && reportData.length > 0) {
+                const keys = Object.keys(reportData[0]);
+                const numericKeys = keys.filter(k => {
+                    const sample = reportData[0][k];
+                    return !isNaN(parseFloat(sample)) && !k.toLowerCase().includes('date') && !k.toLowerCase().includes('name');
+                });
+                const totalRow = { ...reportData[0] };
+                keys.forEach(k => {
+                    if (k.toLowerCase().includes('name')) {
+                        totalRow[k] = '═══ GRAND TOTAL ═══';
+                    } else if (numericKeys.includes(k)) {
+                        totalRow[k] = reportData.reduce((sum, row) => sum + (parseFloat(row[k]) || 0), 0);
+                    } else {
+                        totalRow[k] = '';
+                    }
+                });
+                exportData.push(totalRow);
+            }
+            
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
             XLSX.writeFile(workbook, `${currentType}_report_${Date.now()}.xlsx`);
