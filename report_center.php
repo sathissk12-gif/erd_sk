@@ -172,9 +172,13 @@
             try {
                 const res = await fetch(`api_reports_export.php?action=get_data&type=${currentType}&start_date=${start}&end_date=${end}`);
                 reportData = await res.json();
+                if (reportData.error) {
+                    alert("Server Error: " + reportData.error);
+                    reportData = [];
+                }
                 renderTable();
             } catch (err) {
-                alert("Error fetching data");
+                alert("Network Error: " + err.message);
             } finally {
                 document.getElementById('loading').classList.add('hidden');
                 document.getElementById('tableContainer').classList.remove('hidden');
@@ -182,11 +186,38 @@
         }
 
         const SUMMARY_TYPES = ['software_sales_summary', 'software_renewal_summary', 'software_combined'];
+        // Columns that should NEVER be formatted as currency/numbers (IMEI, IDs, etc.)
+        const NON_NUMERIC_COLS = ['imei', 'imei1', 'imei2', 'sl_no', 'invoice_no', 'invoice_num',
+            'mobile_number', 'mobile_no', 'mobile', 'phone', 'pincode', 'zip',
+            'vehicle_no', 'vehicle_num', 'sim_number', 'sim_no'];
+
+        function isNumericColumn(k) {
+            const keyLower = k.toLowerCase().replace(/\s+/g, '_');
+            if (NON_NUMERIC_COLS.some(col => keyLower.includes(col) || keyLower === col)) return false;
+            return true;
+        }
 
         function formatCurrency(val) {
             const n = parseFloat(val);
             if (isNaN(n)) return '₹0';
             return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        }
+
+        function formatCellValue(val, key) {
+            if (val === null || val === undefined || val === '') return '-';
+            const isNumeric = !isNaN(parseFloat(val)) && val !== '-' && val !== '';
+            if (isNumeric && isNumericColumn(key)) {
+                const keyLower = key.toLowerCase();
+                if (keyLower.includes('count') || keyLower.includes('stock') || keyLower.includes('qty')) {
+                    return parseFloat(val).toLocaleString('en-IN');
+                }
+                // Only format as currency if value is large enough or has decimal places
+                if (parseFloat(val) > 0) {
+                    return formatCurrency(val);
+                }
+                return val;
+            }
+            return val;
         }
 
         function renderTable() {
@@ -242,48 +273,27 @@
             // Rows (Desktop)
             body.innerHTML = reportData.map(row => `
                 <tr class="hover:bg-slate-800/30 transition">
-                    ${keys.map(k => {
-                        const val = row[k] || '-';
-                        const isNumeric = !isNaN(parseFloat(val)) && val !== '-' && val !== '';
-                        const displayVal = isNumeric && !k.toLowerCase().includes('date') && !k.toLowerCase().includes('name')
-                            ? (k.toLowerCase().includes('count') ? parseFloat(val).toLocaleString('en-IN') : formatCurrency(val))
-                            : val;
-                        return `<td class="px-6 py-4 text-slate-300">${displayVal}</td>`;
-                    }).join('')}
+                    ${keys.map(k => `<td class="px-6 py-4 text-slate-300">${formatCellValue(row[k], k)}</td>`).join('')}
                 </tr>
             `).join('');
 
             // Cards (Mobile)
             cardContainer.innerHTML = reportData.map(row => `
                 <div class="p-4 space-y-2">
-                    ${keys.slice(0, 4).map(k => {
-                        const val = row[k] || '-';
-                        const isNumeric = !isNaN(parseFloat(val)) && val !== '-' && val !== '';
-                        const displayVal = isNumeric && !k.toLowerCase().includes('date') && !k.toLowerCase().includes('name')
-                            ? (k.toLowerCase().includes('count') ? parseFloat(val).toLocaleString('en-IN') : formatCurrency(val))
-                            : val;
-                        return `
-                            <div class="flex justify-between items-center text-sm">
-                                <span class="text-slate-500 font-bold uppercase text-[9px] tracking-wider">${k.replace(/_/g, ' ')}</span>
-                                <span class="text-slate-200 font-semibold">${displayVal}</span>
-                            </div>
-                        `;
-                    }).join('')}
+                    ${keys.slice(0, 4).map(k => `
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-slate-500 font-bold uppercase text-[9px] tracking-wider">${k.replace(/_/g, ' ')}</span>
+                            <span class="text-slate-200 font-semibold">${formatCellValue(row[k], k)}</span>
+                        </div>
+                    `).join('')}
                     ${keys.length > 4 ? `
                         <div class="pt-2 border-t border-white/5 flex flex-wrap gap-x-4 gap-y-1">
-                            ${keys.slice(4).map(k => {
-                                const val = row[k] || '-';
-                                const isNumeric = !isNaN(parseFloat(val)) && val !== '-' && val !== '';
-                                const displayVal = isNumeric && !k.toLowerCase().includes('date') && !k.toLowerCase().includes('name')
-                                    ? (k.toLowerCase().includes('count') ? parseFloat(val).toLocaleString('en-IN') : formatCurrency(val))
-                                    : val;
-                                return `
-                                    <div class="text-[10px]">
-                                        <span class="text-slate-500">${k.replace(/_/g, ' ')}:</span>
-                                        <span class="text-slate-300">${displayVal}</span>
-                                    </div>
-                                `;
-                            }).join('')}
+                            ${keys.slice(4).map(k => `
+                                <div class="text-[10px]">
+                                    <span class="text-slate-500">${k.replace(/_/g, ' ')}:</span>
+                                    <span class="text-slate-300">${formatCellValue(row[k], k)}</span>
+                                </div>
+                            `).join('')}
                         </div>
                     ` : ''}
                 </div>
