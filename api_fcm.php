@@ -14,23 +14,127 @@ $fcmKey = $fcmKeyRes ? $fcmKeyRes['key_value'] : '';
 define('FCM_SERVER_KEY', $fcmKey); 
 
 /**
- * Sends a native notification to specific tokens or a topic.
+ * 🎵 Resolve notification sound from settings with per-type fallback
  */
-function sendPushNotification($title, $body, $target = '/topics/all', $extraData = []) {
+function resolveNotificationSound($type = 'default') {
+    global $conn;
+    static $settingsCache = null;
+    
+    if ($settingsCache === null) {
+        $settingsCache = [];
+        try {
+            $res = $conn->query("SELECT key_name, key_value FROM system_settings WHERE key_name IN ('notification_sound','notification_sound_appt','notification_sound_renewal','notification_sound_payment','notification_sound_lead','notification_custom_sound','appt_sound_enabled')");
+            foreach ($res->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $settingsCache[$row['key_name']] = $row['key_value'];
+            }
+        } catch (Exception $e) {}
+    }
+    
+    // If sound alerts globally disabled, return empty
+    if (($settingsCache['appt_sound_enabled'] ?? '1') === '0') {
+        return 'disabled';
+    }
+    
+    // Per-type sound mapping
+    $typeKeyMap = [
+        'appointment' => 'notification_sound_appt',
+        'renewal'     => 'notification_sound_renewal',
+        'payment'     => 'notification_sound_payment',
+        'lead'        => 'notification_sound_lead'
+    ];
+    
+    $sound = '';
+    if (isset($typeKeyMap[$type])) {
+        $sound = $settingsCache[$typeKeyMap[$type]] ?? '';
+    }
+    
+    // Fallback to global default
+    if (empty($sound)) {
+        $sound = $settingsCache['notification_sound'] ?? 'default';
+    }
+    
+    // If custom, use custom sound filename
+    if ($sound === 'custom') {
+        $custom = $settingsCache['notification_custom_sound'] ?? '';
+        if (!empty($custom)) {
+            return $custom;
+        }
+        $sound = 'default'; // fallback
+    }
+    
+    return $sound;
+}
+
+/**
+ * 📳 Resolve vibration pattern from settings
+ */
+function resolveVibrationPattern() {
+    global $conn;
+    static $pattern = null;
+    if ($pattern !== null) return $pattern;
+    
+    try {
+        $enabled = $conn->query("SELECT key_value FROM system_settings WHERE key_name = 'notification_vibration'")->fetchColumn();
+        if ($enabled === '0') {
+            $pattern = 'disabled';
+            return $pattern;
+        }
+        $p = $conn->query("SELECT key_value FROM system_settings WHERE key_name = 'notification_vibration_pattern'")->fetchColumn();
+        $pattern = $p ?: 'standard';
+    } catch (Exception $e) {
+        $pattern = 'standard';
+    }
+    return $pattern;
+}
+
+/**
+ * Sends a native notification to specific tokens or a topic.
+ * @param string $title - Notification title
+ * @param string $body - Notification body
+ * @param string $target - FCM topic or token
+ * @param array $extraData - Additional data payload
+ * @param string $type - Notification type (appointment/renewal/payment/lead) for sound resolution
+ */
+function sendPushNotification($title, $body, $target = '/topics/all', $extraData = [], $type = 'default') {
     if (FCM_SERVER_KEY === 'YOUR_FCM_SERVER_KEY_HERE') {
         return ['success' => false, 'message' => 'FCM Server Key not configured'];
     }
 
     $url = 'https://fcm.googleapis.com/fcm/send';
-
+    
+    // Resolve sound from settings
+    $soundName = resolveNotificationSound($type);
+    $vibrationPattern = resolveVibrationPattern();
+    
+    // Build vibration array for Android
+    $vibrationArray = [];
+    if ($vibrationPattern !== 'disabled') {
+        switch ($vibrationPattern) {
+            case 'double':   $vibrationArray = [100, 100, 100]; break;
+            case 'long':     $vibrationArray = [500]; break;
+            case 'rapid':    $vibrationArray = [200, 100, 200, 100, 200, 100, 500]; break;
+            case 'heartbeat': $vibrationArray = [100, 200, 100, 500]; break;
+            default:         $vibrationArray = [200, 100, 200]; break; // standard
+        }
+    }
+    
+    // If sound is disabled, omit from notification payload
     $notification = [
         'title' => $title,
         'body' => $body,
-        'sound' => 'default',
         'badge' => '1',
-        'click_action' => 'OPEN_ACTIVITY_1', // Match this in Android manifest
+        'click_action' => 'OPEN_ACTIVITY_1',
         'icon' => 'ic_launcher'
     ];
+    
+    // Only add sound if enabled
+    if ($soundName !== 'disabled') {
+        $notification['sound'] = $soundName;
+    }
+    
+    if (!empty($vibrationArray)) {
+        $notification['vibrate'] = $vibrationArray;
+    }
 
     $payload = [
         'to' => $target,
@@ -38,7 +142,9 @@ function sendPushNotification($title, $body, $target = '/topics/all', $extraData
         'priority' => 'high',
         'data' => array_merge($extraData, [
             'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
-            'timestamp' => date('Y-m-d H:i:s')
+            'timestamp' => date('Y-m-d H:i:s'),
+            'sound' => $soundName,
+            'vibration' => $vibrationPattern
         ])
     ];
 
@@ -103,7 +209,22 @@ if (isset($_REQUEST['action'])) {
             // Simple manual test
             $title = $_POST['title'] ?? 'Test Notification';
             $message = $_POST['message'] ?? 'This is a sample alert from SK Logic Web.';
-            $res = sendPushNotification($title, $message);
+            $sound = $_POST['sound'] ?? '';
+            $type = $_POST['type'] ?? 'default';
+            $res = sendPushNotification($title, $message, '/topics/all', ['type' => 'TEST'], $type);
+            echo json_encode($res);
+            break;
+            
+        case 'test_sound':
+            // Test configured sound
+            $sound = $_POST['sound'] ?? 'default';
+            $vibration = $_POST['vibration'] ?? 'standard';
+            $title = "🎵 Sound Test: " . strtoupper($sound);
+            $body = "Testing notification sound: {$sound}";
+            $res = sendPushNotification($title, $body, '/topics/all', [
+                'type' => 'SOUND_TEST',
+                'test_sound' => $sound
+            ], 'appointment');
             echo json_encode($res);
             break;
             

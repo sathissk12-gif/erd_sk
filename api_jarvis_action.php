@@ -213,8 +213,11 @@ try {
 
             require_once __DIR__ . '/api_fcm.php';
             
+            // Read notification type from request, default to 'default' (uses global sound setting)
+            $notifyType = $_REQUEST['notify_type'] ?? 'default';
+            
             if (function_exists('sendPushNotification')) {
-                $result = sendPushNotification($title, $body, $target, ['source' => 'jarvis']);
+                $result = sendPushNotification($title, $body, $target, ['source' => 'jarvis'], $notifyType);
             } else {
                 $result = sendFcmDirect($title, $body, $target);
             }

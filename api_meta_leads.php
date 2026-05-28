@@ -49,4 +49,20 @@ if ($action === 'latest_unprocessed') {
         echo json_encode(['error' => $e->getMessage()]);
     }
 }
+
+if ($action === 'sound_settings') {
+    try {
+        $keys = ['appt_sound_enabled','notification_sound','notification_sound_lead','notification_custom_sound','notification_vibration','notification_vibration_pattern'];
+        $placeholders = rtrim(str_repeat('?,', count($keys)), ',');
+        $stmt = $conn->prepare("SELECT key_name, key_value FROM system_settings WHERE key_name IN ($placeholders)");
+        $stmt->execute($keys);
+        $result = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $result[$row['key_name']] = $row['key_value'];
+        }
+        echo json_encode($result);
+    } catch (Exception $e) {
+        echo json_encode(['error' => $e->getMessage()]);
+    }
+}
 ?>

@@ -25,7 +25,16 @@ $defaults = [
     'appt_multi_reminder' => '1',
     'appt_reminder_24h' => '1',
     'appt_reminder_1h' => '1',
-    'appt_reminder_10min' => '1'
+    'appt_reminder_10min' => '1',
+    // 🎵 Sound Management Settings
+    'notification_sound' => 'default',
+    'notification_sound_appt' => 'default',
+    'notification_sound_renewal' => 'alarm',
+    'notification_sound_payment' => 'notification',
+    'notification_sound_lead' => 'chime',
+    'notification_custom_sound' => '',
+    'notification_vibration' => '1',
+    'notification_vibration_pattern' => 'standard'
 ];
 
 foreach ($defaults as $k => $v) {
@@ -119,6 +128,159 @@ foreach ($res as $row) {
                 </div>
             </div>
 
+            <!-- 🎵 SOUND MANAGEMENT SECTION -->
+            <h2 style="margin-top:30px;"><i class="fa-solid fa-music"></i> Sound Manager <span class="badge">NEW</span></h2>
+
+            <div class="form-group">
+                <label>🎵 Default Notification Sound</label>
+                <select name="notification_sound" class="input">
+                    <?php
+                    $sounds = [
+                        'default' => '📱 Default (System)',
+                        'chime' => '🔔 Chime',
+                        'bell' => '🔔 Bell',
+                        'notification' => '📬 Notification',
+                        'alarm' => '🚨 Alarm',
+                        'alert' => '⚠️ Alert',
+                        'ringtone' => '📞 Ringtone',
+                        'custom' => '🎵 Custom Sound'
+                    ];
+                    $currentSound = $settings['notification_sound'] ?? 'default';
+                    foreach ($sounds as $val => $label) {
+                        $sel = ($currentSound === $val) ? 'selected' : '';
+                        echo "<option value=\"$val\" $sel>$label</option>";
+                    }
+                    ?>
+                </select>
+                <small style="color:#64748b;font-size:11px;margin-top:4px;display:block;">Applied to all notifications when no specific sound is set</small>
+            </div>
+
+            <div class="form-group">
+                <label>🎵 Per-Notification-Type Sounds</label>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label style="font-size:10px;">📅 Appointment Sound</label>
+                        <select name="notification_sound_appt" class="input">
+                            <option value="">Use Default</option>
+                            <?php foreach ($sounds as $val => $label): ?>
+                                <option value="<?= $val ?>" <?= ($settings['notification_sound_appt'] ?? '') === $val ? 'selected' : '' ?>><?= $label ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:10px;">🔄 Renewal Sound</label>
+                        <select name="notification_sound_renewal" class="input">
+                            <option value="">Use Default</option>
+                            <?php foreach ($sounds as $val => $label): ?>
+                                <option value="<?= $val ?>" <?= ($settings['notification_sound_renewal'] ?? 'alarm') === $val ? 'selected' : '' ?>><?= $label ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:10px;">💰 Payment Sound</label>
+                        <select name="notification_sound_payment" class="input">
+                            <option value="">Use Default</option>
+                            <?php foreach ($sounds as $val => $label): ?>
+                                <option value="<?= $val ?>" <?= ($settings['notification_sound_payment'] ?? 'notification') === $val ? 'selected' : '' ?>><?= $label ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size:10px;">📘 Lead Sound</label>
+                        <select name="notification_sound_lead" class="input">
+                            <option value="">Use Default</option>
+                            <?php foreach ($sounds as $val => $label): ?>
+                                <option value="<?= $val ?>" <?= ($settings['notification_sound_lead'] ?? 'chime') === $val ? 'selected' : '' ?>><?= $label ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" id="customSoundGroup" style="<?= ($settings['notification_sound'] ?? 'default') === 'custom' ? '' : 'display:none;' ?>">
+                <label>🎶 Custom Sound File Name</label>
+                <input type="text" name="notification_custom_sound" class="input" placeholder="e.g. my_sound.mp3 or raw/my_sound" value="<?= htmlspecialchars($settings['notification_custom_sound'] ?? '') ?>">
+                <small style="color:#64748b;font-size:11px;margin-top:4px;display:block;">
+                    For Android: filename in <code>res/raw/</code> folder (without extension).<br>
+                    For Web: URL to sound file (.mp3/.wav).
+                </small>
+            </div>
+
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>📳 Vibration</label>
+                    <select name="notification_vibration" class="input">
+                        <option value="1" <?= ($settings['notification_vibration'] ?? '1') == '1' ? 'selected' : '' ?>>Enabled</option>
+                        <option value="0" <?= ($settings['notification_vibration'] ?? '1') == '0' ? 'selected' : '' ?>>Disabled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>📳 Vibration Pattern</label>
+                    <select name="notification_vibration_pattern" class="input">
+                        <option value="standard" <?= ($settings['notification_vibration_pattern'] ?? 'standard') == 'standard' ? 'selected' : '' ?>>Standard (1 short)</option>
+                        <option value="double" <?= ($settings['notification_vibration_pattern'] ?? '') == 'double' ? 'selected' : '' ?>>Double Tap</option>
+                        <option value="long" <?= ($settings['notification_vibration_pattern'] ?? '') == 'long' ? 'selected' : '' ?>>Long Vibration</option>
+                        <option value="rapid" <?= ($settings['notification_vibration_pattern'] ?? '') == 'rapid' ? 'selected' : '' ?>>Rapid (Alarm)</option>
+                        <option value="heartbeat" <?= ($settings['notification_vibration_pattern'] ?? '') == 'heartbeat' ? 'selected' : '' ?>>Heartbeat Pattern</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="text-align:center;margin-top:10px;">
+                <button type="button" class="btn" style="background:linear-gradient(135deg,#10b981,#059669);padding:10px 20px;width:auto;display:inline-flex;align-items:center;gap:8px;" onclick="testSound()">
+                    <i class="fa-solid fa-volume-high"></i> Test Sound
+                </button>
+            </div>
+
+            <script>
+            // Toggle custom sound input visibility
+            document.querySelector('[name="notification_sound"]')?.addEventListener('change', function() {
+                document.getElementById('customSoundGroup').style.display = this.value === 'custom' ? '' : 'none';
+            });
+
+            // Sound test function
+            function testSound() {
+                const soundSelect = document.querySelector('[name="notification_sound"]');
+                const customInput = document.querySelector('[name="notification_custom_sound"]');
+                let soundName = soundSelect?.value || 'default';
+                
+                if (soundName === 'custom' && customInput?.value) {
+                    soundName = customInput.value;
+                }
+                
+                // Show test feedback
+                const btn = document.querySelector('button[onclick="testSound()"]');
+                const origText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing...';
+                btn.style.opacity = '0.7';
+                
+                // Send test notification via FCM
+                fetch('api_fcm.php?action=test_sound', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: 'sound=' + encodeURIComponent(soundName) + '&vibration=' + encodeURIComponent(document.querySelector('[name="notification_vibration_pattern"]')?.value || 'standard')
+                })
+                .then(r => r.json())
+                .then(data => {
+                    btn.innerHTML = data.success ? '<i class="fa-solid fa-check"></i> Sound Sent!' : '<i class="fa-solid fa-xmark"></i> Failed';
+                    btn.style.background = data.success ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#ef4444,#dc2626)';
+                    setTimeout(() => {
+                        btn.innerHTML = origText;
+                        btn.style.opacity = '1';
+                        btn.style.background = '';
+                    }, 2000);
+                })
+                .catch(() => {
+                    btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Error';
+                    setTimeout(() => {
+                        btn.innerHTML = origText;
+                        btn.style.opacity = '1';
+                        btn.style.background = '';
+                    }, 2000);
+                });
+            }
+            </script>
+
             <div class="form-group">
                 <label>🖥️ Full Screen UI</label>
                 <select name="full_screen_notifications" class="input">
@@ -190,6 +352,12 @@ foreach ($res as $row) {
             </div>
 
             <button type="submit" class="btn"><i class="fa-solid fa-save"></i> Save Smart Configuration</button>
+            
+            <div style="text-align:center;margin-top:15px;">
+                <a href="app_notify.php?action=check_appointments" style="color:#64748b;text-decoration:none;font-size:12px;" target="_blank">
+                    <i class="fa-solid fa-arrow-right"></i> Test Appointment Notifications Now
+                </a>
+            </div>
         </form>
 
         <a href="index.html" class="back-link"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>

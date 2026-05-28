@@ -55,6 +55,9 @@ switch ($notifyAction) {
         
         $count = ['overdue' => 0, 'now' => 0, 'upcoming' => 0, 'future' => 0];
         
+        // Helper to get sound state from settings
+        $apptSoundEnabled = ($allSettings['appt_sound_enabled'] ?? '1') === '1';
+        
         // Process Overdue (Level 3 - highest urgency)
         $stmt = $conn->query($q0);
         while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -63,7 +66,6 @@ switch ($notifyAction) {
             
             $extraData = [
                 'full_screen' => 'true',
-                'sound' => 'true',
                 'type' => 'APPOINTMENT_OVERDUE',
                 'appointment_id' => $row['id'],
                 'customer_name' => $row['customer_name'],
@@ -72,7 +74,7 @@ switch ($notifyAction) {
                 'purpose' => $row['purpose'] ?? ''
             ];
             
-            sendPushNotification($title, $msg, '/topics/all', $extraData);
+            sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment');
             $conn->prepare("UPDATE appointment_log SET reminder_level = 3 WHERE id = ?")->execute([$row['id']]);
             $count['overdue']++;
         }
@@ -85,7 +87,6 @@ switch ($notifyAction) {
             
             $extraData = [
                 'full_screen' => 'true',
-                'sound' => 'true',
                 'type' => 'APPOINTMENT_NOW',
                 'appointment_id' => $row['id'],
                 'customer_name' => $row['customer_name'],
@@ -94,7 +95,7 @@ switch ($notifyAction) {
                 'purpose' => $row['purpose'] ?? ''
             ];
             
-            sendPushNotification($title, $msg, '/topics/all', $extraData);
+            sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment');
             $conn->prepare("UPDATE appointment_log SET reminder_level = 2, reminder_sent = 1 WHERE id = ?")->execute([$row['id']]);
             $count['now']++;
         }
@@ -107,19 +108,18 @@ switch ($notifyAction) {
             
             $extraData = [
                 'full_screen' => $fullScreen ? 'true' : 'false',
-                'sound' => 'true',
                 'type' => 'APPOINTMENT_REMINDER',
                 'appointment_id' => $row['id'],
                 'customer_name' => $row['customer_name'],
                 'vehicle_no' => $row['vehicle_no'] ?? ''
             ];
             
-            sendPushNotification($title, $msg, '/topics/all', $extraData);
+            sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment');
             $conn->prepare("UPDATE appointment_log SET reminder_sent = 1, reminder_level = 1 WHERE id = ?")->execute([$row['id']]);
             $count['upcoming']++;
         }
         
-        // Process Future Day-before reminders (Level 0)
+        // Process Future Day-before reminders (Level 0 - always silent)
         $stmt = $conn->query($q3);
         while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $title = "📌 TOMORROW'S APPOINTMENT";
@@ -128,12 +128,12 @@ switch ($notifyAction) {
             
             $extraData = [
                 'full_screen' => 'false',
-                'sound' => 'false',
                 'type' => 'APPOINTMENT_REMINDER',
                 'appointment_id' => $row['id']
             ];
             
-            sendPushNotification($title, $msg, '/topics/all', $extraData);
+            // Silent notification - no sound
+            sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment');
             $conn->prepare("UPDATE appointment_log SET reminder_sent = 1, reminder_level = 0 WHERE id = ?")->execute([$row['id']]);
             $count['future']++;
         }
@@ -175,7 +175,7 @@ switch ($notifyAction) {
                 'type' => 'PAYMENT_REMINDER'
             ];
             
-            sendPushNotification($title, $msg, '/topics/all', $extraData);
+            sendPushNotification($title, $msg, '/topics/all', $extraData, 'payment');
         }
         echo json_encode(['success' => true, 'payments_due' => $res['count']]);
         break;
@@ -236,7 +236,7 @@ switch ($notifyAction) {
                     'software' => $software
                 ];
                 
-                sendPushNotification($title, $msg, '/topics/all', $extraData);
+                sendPushNotification($title, $msg, '/topics/all', $extraData, 'renewal');
                 $count++;
             }
             echo json_encode(['success' => true, 'renewals_notified' => $count]);

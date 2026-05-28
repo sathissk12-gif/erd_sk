@@ -42,9 +42,20 @@ self.addEventListener('push', (event) => {
     // Extract all possible data
     const notificationData = data.data || data.notification?.data || {};
     const fullScreen = data.full_screen === 'true' || notificationData.full_screen === 'true';
-    const soundEnabled = data.sound === 'true' || notificationData.sound === 'true';
     const type = notificationData.type || 'APPOINTMENT_REMINDER';
     const appointmentId = notificationData.appointment_id || data.appointment_id || 0;
+    
+    // 🎵 Resolve sound from server settings (passed in data payload)
+    const soundName = notificationData.sound || data.sound || 'default';
+    const vibrationPattern = notificationData.vibration || data.vibration || 'standard';
+    
+    // Determine vibration array based on pattern
+    let vibrateArray = [200, 100, 200];
+    if (vibrationPattern === 'disabled') vibrateArray = [];
+    else if (vibrationPattern === 'double') vibrateArray = [100, 100, 100];
+    else if (vibrationPattern === 'long') vibrateArray = [500];
+    else if (vibrationPattern === 'rapid') vibrateArray = [200, 100, 200, 100, 200, 100, 500];
+    else if (vibrationPattern === 'heartbeat') vibrateArray = [100, 200, 100, 500];
     
     // Determine urgency tag for notification grouping
     const tag = type === 'APPOINTMENT_NOW' ? 'appt-now' : 'appt-reminder';
@@ -57,12 +68,15 @@ self.addEventListener('push', (event) => {
         tag: tag,
         renotify: true,
         requireInteraction: fullScreen, // Keep notification until user interacts
-        vibrate: fullScreen ? [200, 100, 200, 100, 200, 100, 200] : [200, 100, 200],
+        vibrate: vibrateArray,
+        silent: soundName === 'disabled' || soundName === 'false', // silent if sound disabled
         data: {
             ...notificationData,
             appointment_id: appointmentId,
             type: type,
             full_screen: fullScreen ? 'true' : 'false',
+            sound: soundName,
+            vibration: vibrationPattern,
             timestamp: Date.now(),
             url: APPT_PAGE + (appointmentId ? '?id=' + appointmentId : '')
         },

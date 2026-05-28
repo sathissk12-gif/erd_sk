@@ -1,13 +1,86 @@
 // lead_notifier.js
-// Real-time Lead Notification System
+// Real-time Lead Notification System v2.0 - With Configurable Sound
 
 (function() {
     let lastLeadId = localStorage.getItem('lastNotifiedLeadId') || 0;
+    let soundSettings = {
+        enabled: true,
+        soundUrl: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+        soundName: 'chime',
+        vibration: true,
+        vibrationPattern: 'standard'
+    };
 
-    // 🔊 Notification Sound (Optional - can use a base64 beep or external URL)
+    // 🎵 Sound URL mapping based on configured sound names
+    const SOUND_MAP = {
+        'default': 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+        'chime': 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+        'bell': 'https://assets.mixkit.co/active_storage/sfx/2203/2203-preview.mp3',
+        'notification': 'https://assets.mixkit.co/active_storage/sfx/2200/2200-preview.mp3',
+        'alarm': 'https://assets.mixkit.co/active_storage/sfx/2204/2204-preview.mp3',
+        'alert': 'https://assets.mixkit.co/active_storage/sfx/2201/2201-preview.mp3',
+        'ringtone': 'https://assets.mixkit.co/active_storage/sfx/2202/2202-preview.mp3',
+        'custom': ''
+    };
+
+    // 📳 Vibration patterns
+    const VIBRATION_MAP = {
+        'standard': [200, 100, 200],
+        'double': [100, 100, 100],
+        'long': [500],
+        'rapid': [200, 100, 200, 100, 200, 100, 500],
+        'heartbeat': [100, 200, 100, 500],
+        'disabled': []
+    };
+
+    // 🔄 Fetch sound settings from server on startup
+    const fetchSoundSettings = async () => {
+        try {
+            const res = await fetch('api_meta_leads.php?action=sound_settings');
+            const settings = await res.json();
+            if (settings) {
+                soundSettings.enabled = settings.appt_sound_enabled !== '0';
+                
+                // Determine which sound to use
+                const leadSound = settings.notification_sound_lead || settings.notification_sound || 'chime';
+                soundSettings.soundName = leadSound;
+                
+                if (leadSound === 'custom' && settings.notification_custom_sound) {
+                    soundSettings.soundUrl = settings.notification_custom_sound;
+                } else if (SOUND_MAP[leadSound]) {
+                    soundSettings.soundUrl = SOUND_MAP[leadSound];
+                } else {
+                    soundSettings.soundUrl = SOUND_MAP['chime'];
+                }
+                
+                soundSettings.vibration = settings.notification_vibration !== '0';
+                soundSettings.vibrationPattern = settings.notification_vibration_pattern || 'standard';
+            }
+        } catch (e) {
+            console.warn("Could not fetch sound settings, using defaults:", e);
+        }
+    };
+
+    // 🔊 Play notification sound based on settings
     const playNotificationSound = () => {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        audio.play().catch(e => console.log("Sound blocked by browser"));
+        if (!soundSettings.enabled) return;
+        
+        try {
+            const audio = new Audio(soundSettings.soundUrl);
+            audio.volume = 0.7;
+            audio.play().catch(e => console.log("Sound blocked by browser"));
+        } catch (e) {
+            console.log("Sound play error:", e);
+        }
+    };
+
+    // 📳 Vibrate based on settings
+    const vibrateDevice = () => {
+        if (!soundSettings.vibration || !window.navigator.vibrate) return;
+        const pattern = VIBRATION_MAP[soundSettings.vibrationPattern] || VIBRATION_MAP['standard'];
+        if (pattern.length > 0) {
+            window.navigator.vibrate(pattern);
+        }
     };
 
     const showFullNotification = (lead) => {
@@ -70,9 +143,7 @@
 
         document.body.appendChild(overlay);
         playNotificationSound();
-
-        // Auto vibrate if supported
-        if(window.navigator.vibrate) window.navigator.vibrate([200, 100, 200, 100, 500]);
+        vibrateDevice();
     };
 
     const checkLeads = async () => {
@@ -89,6 +160,12 @@
             console.error("Lead Check Error:", e);
         }
     };
+
+    // ─── INIT ───
+    // Fetch sound settings first, then start polling
+    fetchSoundSettings().then(() => {
+        console.log('🔊 Lead notifier sound:', soundSettings.soundName, soundSettings.enabled ? 'ENABLED' : 'DISABLED');
+    });
 
     // Start Polling (every 30 seconds)
     setInterval(checkLeads, 30000);

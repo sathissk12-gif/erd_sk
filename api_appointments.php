@@ -106,7 +106,7 @@ switch ($action) {
                 'type' => 'APPOINTMENT_CREATED',
                 'appointment_id' => $newId,
                 'full_screen' => 'false'
-            ]);
+            ], 'appointment');
 
             echo json_encode(['success' => true, 'message' => 'Appointment saved', 'id' => $newId]);
         } catch (Exception $e) {
@@ -192,7 +192,7 @@ switch ($action) {
                     'type' => 'APPOINTMENT_ACKNOWLEDGED',
                     'appointment_id' => $id,
                     'full_screen' => 'false'
-                ]);
+                ], 'appointment');
             }
             
             echo json_encode(['success' => true, 'message' => 'Acknowledged']);
@@ -253,9 +253,8 @@ switch ($action) {
                     sendPushNotification($title, $msg, '/topics/all', [
                         'type' => 'APPOINTMENT_REMINDER',
                         'appointment_id' => $a['id'],
-                        'full_screen' => $fullScreen ? 'true' : 'false',
-                        'sound' => $soundEnabled ? 'true' : 'false'
-                    ]);
+                        'full_screen' => $fullScreen ? 'true' : 'false'
+                    ], 'appointment');
                 }
 
                 if ($a['alert_type'] === 'due_now' && !$a['acknowledged_at']) {
@@ -272,12 +271,11 @@ switch ($action) {
                             'type' => 'APPOINTMENT_NOW',
                             'appointment_id' => $a['id'],
                             'full_screen' => 'true',
-                            'sound' => 'true',
                             'customer_name' => $a['customer_name'],
                             'vehicle_no' => $a['vehicle_no'] ?? '',
                             'mobile' => $a['mobile_number'] ?? '',
                             'purpose' => $a['purpose'] ?? ''
-                        ]);
+                        ], 'appointment');
                     }
                 }
 
