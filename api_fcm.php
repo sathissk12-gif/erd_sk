@@ -313,11 +313,12 @@ if (isset($_REQUEST['action'])) {
                 $countStmt->execute($params);
                 $total = (int)$countStmt->fetchColumn();
                 
-                // Get records
-                $sql = "SELECT * FROM notification_logs $where ORDER BY created_at DESC LIMIT ? OFFSET ?";
-                $allParams = array_merge($params, [$limit, $offset]);
+                // Get records - use intval for LIMIT/OFFSET (MariaDB/MySQL compat)
+                $safeLimit = (int)$limit;
+                $safeOffset = (int)$offset;
+                $sql = "SELECT * FROM notification_logs $where ORDER BY created_at DESC LIMIT $safeLimit OFFSET $safeOffset";
                 $stmt = $conn->prepare($sql);
-                $stmt->execute($allParams);
+                $stmt->execute($params);
                 $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 // Decode JSON data for each notification
