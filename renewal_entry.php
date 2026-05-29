@@ -191,6 +191,25 @@
             <div class="input-group"><label>Software/Platform</label><input type="text" id="soft" class="input-field"></div>
         </div>
 
+        <!-- 📊 Today's Sales Hint -->
+        <div class="glass-card" id="todaySalesHint" style="border:1px solid rgba(16,185,129,0.15);background:rgba(16,185,129,0.03);padding:16px 20px;display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:36px;height:36px;border-radius:11px;background:rgba(16,185,129,0.12);display:flex;align-items:center;justify-content:center;color:#10b981;font-size:16px;">
+                        <i class="fa-solid fa-chart-line"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Today's Sales <span style="color:var(--text-muted);font-weight:400;text-transform:none;font-size:9px;" id="todayDateLabel"></span></div>
+                        <div style="display:flex;gap:14px;margin-top:4px;">
+                            <span style="font-size:13px;font-weight:800;color:#10b981;font-family:'Outfit';">₹<span id="todaySalesAmt">0</span></span>
+                            <span style="font-size:11px;font-weight:600;color:var(--text-dim);"><span id="todaySalesCount">0</span> invoices</span>
+                        </div>
+                    </div>
+                </div>
+                <span style="font-size:9px;color:var(--text-muted);cursor:pointer;" onclick="refreshTodaySales()"><i class="fa-solid fa-rotate"></i></span>
+            </div>
+        </div>
+
         <div class="glass-card">
             <div class="section-label"><i class="fa-solid fa-file-invoice-dollar"></i> Billing Info</div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
@@ -257,6 +276,23 @@
         const API = "api_renewal.php";
         let lastData = null;
         let systemSettings = {};
+
+        // 📊 Today's Sales Hint
+        async function loadTodaySales() {
+            try {
+                const res = await fetch('api_reports.php?action=time_analytics');
+                const data = await res.json();
+                if (data && data.Today) {
+                    document.getElementById('todaySalesHint').style.display = 'block';
+                    document.getElementById('todaySalesAmt').innerText = (data.Today.sales || 0).toLocaleString();
+                    document.getElementById('todaySalesCount').innerText = data.Today.count || 0;
+                    const now = new Date();
+                    document.getElementById('todayDateLabel').innerText = now.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
+                }
+            } catch(e) {}
+        }
+        function refreshTodaySales() { loadTodaySales(); }
+        document.addEventListener('DOMContentLoaded', loadTodaySales);
 
         async function fetchSoftwareList() {
             try {
