@@ -230,6 +230,11 @@
             background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3);
         }
         .fs-btn-snooze:hover { background: rgba(245, 158, 11, 0.3); }
+        .fs-btn-call {
+            background: linear-gradient(135deg, #10b981, #059669); color: white;
+            box-shadow: 0 15px 30px rgba(16, 185, 129, 0.3);
+        }
+        .fs-btn-call:hover { transform: scale(1.05); }
 
         .fs-time {
             font-size: 14px; color: var(--text-muted); margin-top: 20px;
@@ -300,6 +305,9 @@
         <div class="row"><span class="label">Purpose</span><span class="value" id="fsPurpose">—</span></div>
     </div>
     <div class="fs-actions">
+        <button class="fs-btn fs-btn-call" onclick="callNow()" id="fsCallBtn">
+            <i class="fa-solid fa-phone"></i> 📞 Call Now
+        </button>
         <button class="fs-btn fs-btn-primary" onclick="acknowledgeAlert()">
             <i class="fa-solid fa-check-circle"></i> Acknowledge ✓
         </button>
@@ -468,6 +476,22 @@
     document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('appointment_date').value = new Date().toISOString().split('T')[0];
         document.getElementById('appointment_time').value = new Date().toTimeString().slice(0, 5);
+        
+        // Read URL parameters for pre-fill from reports.php etc.
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('customer')) {
+            document.getElementById('customer_name').value = params.get('customer');
+            handleNameInput(params.get('customer'));
+        }
+        if (params.get('mobile')) {
+            document.getElementById('mobile_number').value = params.get('mobile');
+        }
+        if (params.get('vehicle')) {
+            document.getElementById('vehicle_no').value = params.get('vehicle');
+        }
+        if (params.get('purpose')) {
+            document.getElementById('purpose').value = params.get('purpose');
+        }
         
         loadCustomers();
         loadAppointments();
@@ -768,6 +792,25 @@
         } catch(e) {}
     }
 
+    // ─── 📞 CALL NOW ───
+    function callNow() {
+        const mobile = document.getElementById('fsMobile').textContent;
+        if (mobile && mobile !== '—') {
+            const cleanNum = mobile.replace(/[^0-9+]/g, '');
+            if (cleanNum) {
+                try {
+                    window.open('tel:' + cleanNum, '_self');
+                } catch(e) {
+                    // Fallback for environments where tel: doesn't work
+                    window.location.href = 'tel:' + cleanNum;
+                }
+                showToast('📞 Calling ' + cleanNum + '...', 'info', 3000);
+            }
+        } else {
+            showToast('❌ No mobile number available', 'alert', 3000);
+        }
+    }
+
     // ─── CUSTOMER LOADING ───
     async function loadCustomers() {
         try {
@@ -868,13 +911,14 @@
                                 | <i class="fa-solid fa-clock"></i> 
                                 ${it.appointment_date} 
                                 ${new Date('2000-01-01T' + it.appointment_time).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                                ${it.mobile_number ? '| <i class="fa-solid fa-phone"></i> ' + it.mobile_number : ''}
+                                ${it.mobile_number ? '| <a href="tel:' + it.mobile_number + '" style="color:var(--success);text-decoration:none;font-weight:600;"><i class="fa-solid fa-phone"></i> ' + it.mobile_number + '</a>' : ''}
                             </p>
                             ${it.purpose ? `<p style="margin-top:5px; opacity:0.8;"><i class="fa-solid fa-tag"></i> ${it.purpose}</p>` : ''}
                             ${it.notes ? `<p style="margin-top:3px; font-size: 11px; color: #64748b;"><i class="fa-solid fa-note-sticky"></i> ${it.notes}</p>` : ''}
                         </div>
                         <div class="appt-actions">
                             <span class="appt-status status-${(it.status || 'Pending').toLowerCase()}">${it.status}</span>
+                            ${it.mobile_number ? `<a href="tel:${it.mobile_number}" class="btn btn-sm" style="background:#10b981;color:white;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:6px;" title="Call ${it.mobile_number}"><i class="fa-solid fa-phone"></i></a>` : ''}
                             ${it.status === 'Pending' ? `
                                 <button class="btn btn-sm btn-success" onclick="updateStatus(${it.id}, 'Completed')">
                                     <i class="fa-solid fa-check"></i>

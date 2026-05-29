@@ -507,7 +507,22 @@
             window.location.href = `renewal_invoice.php?${d.uid ? 'uid='+d.uid : 'invoice_no='+d.invoice_no}`; 
         }
 
-        window.onload = fetchSoftwareList;
+        // ─── URL params auto-load ───
+        function autoLoadFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const vehicle = params.get('vehicle');
+            if (vehicle) {
+                document.getElementById('q').value = vehicle.toUpperCase();
+                document.getElementById('searchVehicleMirror').value = vehicle.toUpperCase();
+                document.getElementById('vno').value = vehicle.toUpperCase();
+                setTimeout(() => lookup(), 500);
+            }
+        }
+
+        window.onload = () => {
+            fetchSoftwareList();
+            autoLoadFromUrl();
+        };
     </script>
 </body>
 </html>

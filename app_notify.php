@@ -138,7 +138,8 @@ switch ($notifyAction) {
                     'type' => 'APPOINTMENT_REMINDER',
                     'appointment_id' => $row['id'],
                     'customer_name' => $row['customer_name'],
-                    'vehicle_no' => $row['vehicle_no'] ?? ''
+                    'vehicle_no' => $row['vehicle_no'] ?? '',
+                    'mobile' => $row['mobile_number'] ?? ''
                 ];
                 
                 sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment', $row['id']);
@@ -158,7 +159,9 @@ switch ($notifyAction) {
                 $extraData = [
                     'full_screen' => 'false',
                     'type' => 'APPOINTMENT_REMINDER',
-                    'appointment_id' => $row['id']
+                    'appointment_id' => $row['id'],
+                    'customer_name' => $row['customer_name'] ?? '',
+                    'mobile' => $row['mobile_number'] ?? ''
                 ];
                 
                 // Silent notification - no sound

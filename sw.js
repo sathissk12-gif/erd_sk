@@ -138,6 +138,7 @@ self.addEventListener('push', (event) => {
             notif_id: Date.now() // Unique ID for this notification instance
         },
         actions: (fullScreen || type === 'APPOINTMENT_NOW' || type === 'APPOINTMENT_OVERDUE') ? [
+            { action: 'call', title: '📞 Call Now' },
             { action: 'acknowledge', title: '✅ Acknowledge' },
             { action: 'open', title: '🔍 View Details' },
             { action: 'snooze', title: '⏰ Snooze 5min' }
@@ -163,7 +164,38 @@ self.addEventListener('notificationclick', (event) => {
 
     notification.close();
 
+    // Handle call action
+    if (action === 'call') {
+        const mobile = data.mobile || data.mobile_number || data.phone || '';
+        if (mobile) {
+            event.waitUntil(
+                (async () => {
+                    // Try to navigate existing client to tel: link
+                    const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+                    for (const client of clientList) {
+                        try {
+                            await client.navigate(`tel:${mobile}`);
+                            if ('focus' in client) client.focus();
+                            return;
+                        } catch (e) {
+                            // navigate may fail for tel: protocol, continue to fallback
+                        }
+                    }
+                    // Fallback: open new window with tel: (supported on mobile)
+                    try {
+                        await clients.openWindow(`tel:${mobile}`);
+                    } catch (e) {
+                        console.log('Could not open tel: link', e);
+                    }
+                })()
+            );
+        }
+        notification.close();
+        return;
+    }
+
     switch (action) {
+            
         case 'acknowledge':
             acknowledgeAppointment(data.appointment_id);
             focusOrOpenClient(data.url || APPT_PAGE);

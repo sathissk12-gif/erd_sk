@@ -244,6 +244,7 @@ function renderNotifications(notifications) {
                     </div>
                 </div>
                 <div class="notif-actions">
+                    ${data.mobile ? `<a href="tel:${data.mobile}" class="notif-action-btn" style="color:#10b981;" onclick="event.stopPropagation();" title="Call ${data.mobile}"><i class="fa-solid fa-phone"></i></a>` : ''}
                     ${isUnread ? `<button class="notif-action-btn" onclick="event.stopPropagation();markRead(${n.id})" title="Mark read"><i class="fa-solid fa-check"></i></button>` : ''}
                     <button class="notif-action-btn danger" onclick="event.stopPropagation();deleteNotif(${n.id})" title="Delete"><i class="fa-solid fa-trash-can"></i></button>
                 </div>

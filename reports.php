@@ -142,8 +142,18 @@
             color: white; text-decoration: none; padding: 12px; border-radius: 12px; font-weight: 800; font-size: 13px;
         }
         .wa-btn.disabled { opacity: 0.45; pointer-events: none; }
+        .appt-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px; background: #8b5cf6;
+            color: white; text-decoration: none; padding: 12px; border-radius: 12px; font-weight: 800; font-size: 13px;
+        }
+        .appt-btn:hover { background: #7c3aed; }
+        .renew-btn {
+            display: flex; align-items: center; justify-content: center; gap: 8px; background: #f59e0b;
+            color: white; text-decoration: none; padding: 12px; border-radius: 12px; font-weight: 800; font-size: 13px;
+        }
+        .renew-btn:hover { background: #d97706; }
         .action-row { display: flex; gap: 8px; flex-wrap: wrap; }
-        .action-row .call-btn, .action-row .wa-btn { flex: 1; min-width: 90px; }
+        .action-row .call-btn, .action-row .wa-btn, .action-row .appt-btn, .action-row .renew-btn { flex: 1; min-width: 90px; }
 
         .date-divider { 
             background: rgba(139, 92, 246, 0.1); color: var(--primary); font-size: 11px; font-weight: 800; 
@@ -328,6 +338,7 @@
                     <th>Outlet / Status</th>
                     <th>Customer</th>
                     <th>Revenue</th>
+                    <th>Action</th>
                 </tr>
             `;
 
@@ -335,7 +346,7 @@
             const list = document.getElementById('reportList');
             
             if(!data.length) {
-                body.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:100px;">No records.</td></tr>';
+                body.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:100px;">No records.</td></tr>';
                 list.innerHTML = '<div style="text-align:center; padding:50px;">No records found.</div>';
                 return;
             }
@@ -346,8 +357,9 @@
 
             data.forEach(it => {
                 let date = it.sale_date || it.issue_date || 'N/A';
+                const apptParams = `customer=${encodeURIComponent(it.customer_name || '')}&mobile=${encodeURIComponent(it.mobile_number || it.mobile_no || '')}&vehicle=${encodeURIComponent(it.vehicle_no || '')}&purpose=Service`;
                 if(groupMode && date !== lastDate) {
-                    tableHtml += `<tr><td colspan="5"><div class="date-divider">${date}</div></td></tr>`;
+                    tableHtml += `<tr><td colspan="6"><div class="date-divider">${date}</div></td></tr>`;
                     cardHtml += `<div class="date-divider">${date}</div>`;
                     lastDate = date;
                 }
@@ -359,6 +371,16 @@
                         <td><span class="tag tag-blue">${it.holder || 'Direct'}</span></td>
                         <td><div style="font-weight:700;">${it.customer_name || 'Stock'}</div></td>
                         <td style="font-weight:800; font-family:'Outfit';">₹${currency(it.selling_price)}</td>
+                        <td>
+                            <div class="action-row">
+                                <a class="appt-btn" href="appointment_manager.php?${apptParams}" title="Schedule Appointment">
+                                    <i class="fa-solid fa-calendar-check"></i>
+                                </a>
+                                <a class="renew-btn" href="renewal_entry.php?vehicle=${encodeURIComponent(it.vehicle_no || '')}" title="Renewal Entry">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </a>
+                            </div>
+                        </td>
                     </tr>
                 `;
 
@@ -373,6 +395,14 @@
                             <span class="tag tag-blue">${it.holder || 'Direct'}</span>
                         </div>
                         <div class="card-meta">${it.model || '-'} • ${it.imei || '-'}</div>
+                        <div class="action-row" style="margin-top:8px;">
+                            <a class="appt-btn" href="appointment_manager.php?${apptParams}">
+                                <i class="fa-solid fa-calendar-check"></i> Appointment
+                            </a>
+                            <a class="renew-btn" href="renewal_entry.php?vehicle=${encodeURIComponent(it.vehicle_no || '')}">
+                                <i class="fa-solid fa-arrows-rotate"></i> Renew
+                            </a>
+                        </div>
                     </div>
                 `;
             });
@@ -462,6 +492,8 @@
                         <div class="action-row">
                             <a class="call-btn" href="tel:+91${it.mobile_no}"><i class="fa-solid fa-phone"></i> Call</a>
                             <a class="${waClass}" ${waAttrs}><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+                            <a class="appt-btn" href="appointment_manager.php?customer=${encodeURIComponent(it.customer_name || '')}&mobile=${encodeURIComponent(it.mobile_no || '')}&vehicle=${encodeURIComponent(it.vehicle_no || '')}&purpose=Renewal"><i class="fa-solid fa-calendar-check"></i> Appt</a>
+                            <a class="renew-btn" href="renewal_entry.php?vehicle=${encodeURIComponent(it.vehicle_no || '')}"><i class="fa-solid fa-arrows-rotate"></i> Renew</a>
                         </div>
                     </td>
                 </tr>`;
@@ -469,6 +501,7 @@
 
             list.innerHTML = data.map(it => {
                 const { waAttrs, waClass } = renewalRowHtml(it);
+                const apptParams = `customer=${encodeURIComponent(it.customer_name || '')}&mobile=${encodeURIComponent(it.mobile_no || '')}&vehicle=${encodeURIComponent(it.vehicle_no || '')}&purpose=Renewal`;
                 return `
                 <div class="data-card">
                     <div class="card-row">
@@ -485,6 +518,8 @@
                     <div class="card-row" style="gap:10px;">
                         <a class="call-btn" style="flex:1;" href="tel:+91${it.mobile_no}"><i class="fa-solid fa-phone"></i> CALL</a>
                         <a class="${waClass}" style="flex:1;" ${waAttrs}><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+                        <a class="appt-btn" style="flex:1;" href="appointment_manager.php?${apptParams}"><i class="fa-solid fa-calendar-check"></i> Appt</a>
+                        <a class="renew-btn" style="flex:1;" href="renewal_entry.php?vehicle=${encodeURIComponent(it.vehicle_no || '')}"><i class="fa-solid fa-arrows-rotate"></i> Renew</a>
                     </div>
                 </div>`;
             }).join('');
