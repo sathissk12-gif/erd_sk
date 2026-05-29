@@ -10,7 +10,35 @@ require_once 'db_connect.php';
 // Fetch FCM Key from database settings
 $fcmKeyRes = $conn->query("SELECT key_value FROM system_settings WHERE key_name = 'fcm_server_key'")->fetch();
 $fcmKey = $fcmKeyRes ? $fcmKeyRes['key_value'] : '';
-define('FCM_SERVER_KEY', $fcmKey); 
+define('FCM_SERVER_KEY', $fcmKey);
+
+/**
+ * 🏗️ Auto-create notification_logs table if it doesn't exist
+ */
+function ensureNotificationTable() {
+    global $conn;
+    try {
+        $conn->exec("CREATE TABLE IF NOT EXISTS notification_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255),
+            message TEXT,
+            type VARCHAR(50) DEFAULT 'general',
+            target VARCHAR(255),
+            is_read TINYINT(1) DEFAULT 0,
+            related_id INT DEFAULT NULL,
+            notification_data TEXT DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_type (type),
+            INDEX idx_read (is_read),
+            INDEX idx_created (created_at)
+        )");
+        // Try adding columns if they don't exist (for upgrading existing tables)
+        try { $conn->exec("ALTER TABLE notification_logs ADD COLUMN type VARCHAR(50) DEFAULT 'general' AFTER target"); } catch (Exception $e) {}
+        try { $conn->exec("ALTER TABLE notification_logs ADD COLUMN is_read TINYINT(1) DEFAULT 0 AFTER target"); } catch (Exception $e) {}
+        try { $conn->exec("ALTER TABLE notification_logs ADD COLUMN related_id INT DEFAULT NULL AFTER is_read"); } catch (Exception $e) {}
+        try { $conn->exec("ALTER TABLE notification_logs ADD COLUMN notification_data TEXT DEFAULT NULL AFTER related_id"); } catch (Exception $e) {}
+    } catch (Exception $e) {}
+}
 
 /**
  * 🎵 Resolve notification sound from settings with per-type fallback
@@ -183,12 +211,14 @@ function sendPushNotification($title, $body, $target = '/topics/all', $extraData
  */
 function logNotification($title, $body, $type = 'general', $target = '', $relatedId = null, $extraData = []) {
     global $conn;
+    // Ensure table exists before inserting
+    ensureNotificationTable();
     try {
         $notifData = json_encode($extraData);
         $stmt = $conn->prepare("INSERT INTO notification_logs (title, message, type, target, related_id, notification_data, is_read) VALUES (?, ?, ?, ?, ?, ?, 0)");
         $stmt->execute([$title, $body, $type, $target, $relatedId, $notifData]);
         return $conn->lastInsertId();
-    } catch (Exception $e) { 
+    } catch (Exception $e) {
         // Fallback to simple insert if columns don't exist yet
         try {
             $stmt = $conn->prepare("INSERT INTO notification_logs (title, message, target) VALUES (?, ?, ?)");
@@ -202,6 +232,9 @@ function logNotification($title, $body, $type = 'general', $target = '', $relate
 if (isset($_REQUEST['action'])) {
     header('Content-Type: application/json');
     $action = $_REQUEST['action'];
+    
+    // Auto-ensure notification_logs table exists for all endpoints that use it
+    ensureNotificationTable();
 
     switch ($action) {
         case 'register_token':
