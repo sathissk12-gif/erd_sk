@@ -29,7 +29,7 @@
 
         /* ─── HEADER ─── */
         header {
-            background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(25px);
+            background: var(--header-bg, rgba(3, 7, 18, 0.85)); backdrop-filter: blur(25px);
             padding: calc(12px + env(safe-area-inset-top, 0px)) 20px 14px;
             border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 1000;
             display: flex; justify-content: space-between; align-items: center;
@@ -190,7 +190,7 @@
         }
         .modal-overlay.show { opacity: 1; pointer-events: auto; }
         .modal-sheet {
-            background: #0f172a; border: 1px solid var(--border);
+            background: var(--nav-dock-bg, #0f172a); border: 1px solid var(--border);
             border-radius: 28px 28px 0 0; width: 100%; max-width: 520px;
             max-height: 85vh; overflow-y: auto; padding: 20px;
             transform: translateY(100%); transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -203,9 +203,9 @@
         .form-group { margin-bottom: 16px; }
         .form-label { display: block; font-size: 10px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
         .form-input, .form-select {
-            width: 100%; padding: 15px 16px; background: rgba(0,0,0,0.25);
+            width: 100%; padding: 15px 16px; background: var(--input-bg, rgba(0,0,0,0.25));
             border: 1px solid var(--border); border-radius: 16px;
-            color: white; font-size: 14px; font-family: 'Plus Jakarta Sans', sans-serif; outline: none; transition: 0.3s;
+            color: var(--text); font-size: 14px; font-family: 'Plus Jakarta Sans', sans-serif; outline: none; transition: 0.3s;
         }
         .form-input:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
 
@@ -236,7 +236,7 @@
         /* ─── ITEM PICKER GRID (in modal) ─── */
         .item-pick-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; max-height: 200px; overflow-y: auto; }
         .item-pick-chip {
-            background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 14px;
+            background: var(--surface, rgba(255,255,255,0.03)); border: 1px solid var(--border); border-radius: 14px;
             padding: 10px 6px; text-align: center; cursor: pointer; transition: 0.2s;
             display: flex; flex-direction: column; align-items: center; gap: 4px;
         }
@@ -308,7 +308,7 @@
         .icon-picker-row { display: flex; flex-wrap: wrap; gap: 6px; max-height: 100px; overflow-y: auto; margin-top: 6px; }
         .icon-pick {
             width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
-            font-size: 13px; cursor: pointer; background: rgba(255,255,255,0.05); border: 1px solid transparent;
+            font-size: 13px; cursor: pointer; background: var(--surface, rgba(255,255,255,0.05)); border: 1px solid transparent;
             transition: 0.2s; color: var(--text-dim);
         }
         .icon-pick.selected { border-color: var(--primary); background: rgba(244,63,94,0.15); color: var(--primary); }
@@ -344,7 +344,7 @@
         /* ─── CALCULATOR ─── */
         .calc-btn {
             padding: 12px 6px; border-radius: 10px; border: 1px solid var(--border);
-            background: rgba(255,255,255,0.04); color: var(--text); font-size: 14px; font-weight: 700;
+            background: var(--surface, rgba(255,255,255,0.04)); color: var(--text); font-size: 14px; font-weight: 700;
             cursor: pointer; transition: 0.15s; font-family: 'Plus Jakarta Sans', sans-serif;
         }
         .calc-btn:active { background: var(--primary); border-color: var(--primary); color: white; transform: scale(0.92); }
@@ -487,7 +487,7 @@
                 <span class="sid-name" id="sidName">Select an item</span>
                 <span class="sid-clear" onclick="clearSelectedItem()"><i class="fa-solid fa-xmark"></i></span>
             </div>
-            <div id="noItemSelected" style="padding:12px;text-align:center;color:var(--text-dim);font-size:12px;background:rgba(255,255,255,0.02);border-radius:14px;">
+            <div id="noItemSelected" style="padding:12px;text-align:center;color:var(--text-dim);font-size:12px;background:var(--surface, rgba(255,255,255,0.02));border-radius:14px;">
                 👆 Tap an item below or add new
             </div>
         </div>
@@ -503,7 +503,7 @@
 
         <div class="form-group">
             <label class="form-label">Amount (₹)</label>
-            <input type="number" class="form-input" id="addAmount" placeholder="0.00" step="0.01" min="0" inputmode="decimal">
+            <input type="text" class="form-input" id="addAmount" placeholder="0.00" inputmode="decimal" autocomplete="off">
             <button class="btn-sm" onclick="toggleCalc()" style="margin-top:6px;width:100%;" id="calcToggle">🧮 Calculator</button>
             <div class="calc-wrap" id="calcWrap" style="display:none;margin-top:8px;background:rgba(0,0,0,0.15);border-radius:14px;padding:10px;">
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;">
@@ -607,8 +607,6 @@
     let savedItems = [];
     let allTransactions = [];
     let quickFilterType = 'all';
-    let calcExpr = '';
-    let calcResetOnInput = false;
 
     const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const COMMON_ICONS = [
@@ -1177,6 +1175,11 @@
     }
 
     // ─── CALCULATOR ───
+    let calcCurrent = '';
+    let calcStored = 0;
+    let calcOperator = '';
+    let calcFresh = true;
+
     function toggleCalc() {
         const wrap = document.getElementById('calcWrap');
         const btn = document.getElementById('calcToggle');
@@ -1188,49 +1191,73 @@
             btn.innerHTML = '🧮 Calculator';
         }
     }
+
+    function updCalcDisplay() {
+        document.getElementById('addAmount').value = calcCurrent;
+        document.getElementById('calcExpr').innerText = calcOperator ? calcStored + ' ' + calcOperator : '';
+    }
+
     function calcInput(val) {
-        const inp = document.getElementById('addAmount');
-        if (calcResetOnInput) { inp.value = ''; calcResetOnInput = false; }
-        if (val === '.' && inp.value.includes('.')) return;
-        inp.value += val;
-        inp.focus();
+        if (calcFresh) { calcCurrent = ''; calcFresh = false; }
+        if (val === '.' && calcCurrent.includes('.')) return;
+        if (val === '00' && calcCurrent === '') { calcCurrent = '0'; updCalcDisplay(); return; }
+        calcCurrent += val;
+        updCalcDisplay();
+        document.getElementById('addAmount').focus();
     }
+
     function calcOp(op) {
-        const inp = document.getElementById('addAmount');
-        const currentVal = parseFloat(inp.value) || 0;
-        calcExpr = currentVal + ' ' + op + ' ';
-        document.getElementById('calcExpr').innerText = calcExpr;
-        inp.value = '';
-        calcResetOnInput = false;
-        inp.focus();
-    }
-    function calcClear() {
-        document.getElementById('addAmount').value = '';
-        calcExpr = '';
-        document.getElementById('calcExpr').innerText = '';
-        calcResetOnInput = false;
-    }
-    function calcEquals() {
-        const inp = document.getElementById('addAmount');
-        const currentVal = parseFloat(inp.value) || 0;
-        if (calcExpr) {
-            const parts = calcExpr.trim().split(' ');
-            const prevVal = parseFloat(parts[0]) || 0;
-            const op = parts[1];
-            let result = 0;
-            switch(op) {
-                case '+': result = prevVal + currentVal; break;
-                case '-': result = prevVal - currentVal; break;
-                case '*': result = prevVal * currentVal; break;
-                case '/': result = currentVal !== 0 ? prevVal / currentVal : 0; break;
-                default: result = currentVal;
-            }
-            document.getElementById('calcExpr').innerText = calcExpr + currentVal + ' = ' + result.toFixed(2);
-            inp.value = result.toFixed(2);
-            calcExpr = '';
-            calcResetOnInput = true;
+        if (calcCurrent === '' && calcOperator) { calcOperator = op; updCalcDisplay(); return; }
+        const cur = parseFloat(calcCurrent) || 0;
+        if (calcOperator && !calcFresh) {
+            calcStored = compute(calcStored, cur, calcOperator);
+        } else {
+            calcStored = cur;
         }
-        inp.focus();
+        calcOperator = op;
+        calcCurrent = '';
+        calcFresh = true;
+        document.getElementById('addAmount').value = String(calcStored);
+        document.getElementById('calcExpr').innerText = calcStored + ' ' + calcOperator;
+        document.getElementById('addAmount').focus();
+    }
+
+    function calcEquals() {
+        const cur = parseFloat(calcCurrent) || 0;
+        let result;
+        if (calcOperator) {
+            result = compute(calcStored, cur, calcOperator);
+            document.getElementById('calcExpr').innerText = calcStored + ' ' + calcOperator + ' ' + (calcCurrent || '0') + ' =';
+        } else {
+            result = parseFloat(calcCurrent) || 0;
+        }
+        result = parseFloat(result.toFixed(2));
+        document.getElementById('addAmount').value = String(result);
+        calcCurrent = String(result);
+        calcStored = 0;
+        calcOperator = '';
+        calcFresh = true;
+        document.getElementById('addAmount').focus();
+    }
+
+    function compute(a, b, op) {
+        switch(op) {
+            case '+': return a + b;
+            case '-': return a - b;
+            case '*': return a * b;
+            case '/': return b !== 0 ? a / b : 0;
+            default: return b;
+        }
+    }
+
+    function calcClear() {
+        calcCurrent = '';
+        calcStored = 0;
+        calcOperator = '';
+        calcFresh = true;
+        document.getElementById('addAmount').value = '';
+        document.getElementById('calcExpr').innerText = '';
+        document.getElementById('addAmount').focus();
     }
 
     // ─── KEYBOARD ───
