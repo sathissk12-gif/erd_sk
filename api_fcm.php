@@ -1,10 +1,9 @@
 <?php
 /**
- * 🚀 GLOBAL NOTIFICATION ENGINE (FCM)
+ * 🚀 GLOBAL NOTIFICATION ENGINE (FCM v3)
  * Use this file to manage app tokens and trigger native push notifications.
+ * Upgraded with Notification Inbox, Read/Unread tracking, and more.
  */
-
-require_once 'db_connect.php';
 
 require_once 'db_connect.php';
 
@@ -94,9 +93,12 @@ function resolveVibrationPattern() {
  * @param string $target - FCM topic or token
  * @param array $extraData - Additional data payload
  * @param string $type - Notification type (appointment/renewal/payment/lead) for sound resolution
+ * @param int|null $relatedId - Related record ID (appointment_id, etc.)
  */
-function sendPushNotification($title, $body, $target = '/topics/all', $extraData = [], $type = 'default') {
+function sendPushNotification($title, $body, $target = '/topics/all', $extraData = [], $type = 'default', $relatedId = null) {
     if (FCM_SERVER_KEY === 'YOUR_FCM_SERVER_KEY_HERE') {
+        // Still log locally even if FCM not configured
+        logNotification($title, $body, $type, $target, $relatedId, $extraData);
         return ['success' => false, 'message' => 'FCM Server Key not configured'];
     }
 
@@ -144,7 +146,9 @@ function sendPushNotification($title, $body, $target = '/topics/all', $extraData
             'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
             'timestamp' => date('Y-m-d H:i:s'),
             'sound' => $soundName,
-            'vibration' => $vibrationPattern
+            'vibration' => $vibrationPattern,
+            'type' => $type,
+            'related_id' => $relatedId
         ])
     ];
 
@@ -165,17 +169,33 @@ function sendPushNotification($title, $body, $target = '/topics/all', $extraData
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
-    // Log notification to database for history
-    global $conn;
-    try {
-        $stmt = $conn->prepare("INSERT INTO notification_logs (title, message, target) VALUES (?, ?, ?)");
-        $stmt->execute([$title, $body, $target]);
-    } catch (Exception $e) { /* Table might not exist yet */ }
+    // Log notification to database with enhanced fields
+    logNotification($title, $body, $type, $target, $relatedId, $extraData);
 
     return [
         'http_code' => $httpCode,
         'response' => json_decode($response, true)
     ];
+}
+
+/**
+ * 📝 Enhanced notification logging with type and read status
+ */
+function logNotification($title, $body, $type = 'general', $target = '', $relatedId = null, $extraData = []) {
+    global $conn;
+    try {
+        $notifData = json_encode($extraData);
+        $stmt = $conn->prepare("INSERT INTO notification_logs (title, message, type, target, related_id, notification_data, is_read) VALUES (?, ?, ?, ?, ?, ?, 0)");
+        $stmt->execute([$title, $body, $type, $target, $relatedId, $notifData]);
+        return $conn->lastInsertId();
+    } catch (Exception $e) { 
+        // Fallback to simple insert if columns don't exist yet
+        try {
+            $stmt = $conn->prepare("INSERT INTO notification_logs (title, message, target) VALUES (?, ?, ?)");
+            $stmt->execute([$title, $body, $target]);
+        } catch (Exception $e2) {}
+        return null;
+    }
 }
 
 // --- 🛠️ API ENDPOINTS ---
@@ -235,6 +255,156 @@ if (isset($_REQUEST['action'])) {
                 echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
             } catch (Exception $e) {
                 echo json_encode([]);
+            }
+            break;
+
+        // === 📬 NEW: Notification Inbox Endpoints ===
+        
+        case 'get_inbox':
+            // Get notification inbox with pagination & type filter
+            $page = max(1, (int)($_GET['page'] ?? 1));
+            $limit = min(50, max(10, (int)($_GET['limit'] ?? 30)));
+            $offset = ($page - 1) * $limit;
+            $typeFilter = $_GET['type'] ?? '';
+            
+            try {
+                $where = '';
+                $params = [];
+                if (!empty($typeFilter) && $typeFilter !== 'all') {
+                    $where = "WHERE type = ?";
+                    $params[] = $typeFilter;
+                }
+                
+                // Get total count
+                $countStmt = $conn->prepare("SELECT COUNT(*) FROM notification_logs $where");
+                $countStmt->execute($params);
+                $total = (int)$countStmt->fetchColumn();
+                
+                // Get records
+                $sql = "SELECT * FROM notification_logs $where ORDER BY created_at DESC LIMIT ? OFFSET ?";
+                $allParams = array_merge($params, [$limit, $offset]);
+                $stmt = $conn->prepare($sql);
+                $stmt->execute($allParams);
+                $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Decode JSON data for each notification
+                foreach ($notifications as &$notif) {
+                    if (!empty($notif['notification_data'])) {
+                        $notif['data'] = json_decode($notif['notification_data'], true);
+                    } else {
+                        $notif['data'] = null;
+                    }
+                    unset($notif['notification_data']);
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'notifications' => $notifications,
+                    'total' => $total,
+                    'page' => $page,
+                    'limit' => $limit,
+                    'total_pages' => ceil($total / $limit)
+                ]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+            
+        case 'get_unread_count':
+            // Get unread notification count
+            try {
+                $typeFilter = $_GET['type'] ?? '';
+                $where = 'WHERE is_read = 0';
+                $params = [];
+                if (!empty($typeFilter) && $typeFilter !== 'all') {
+                    $where .= " AND type = ?";
+                    $params[] = $typeFilter;
+                }
+                $stmt = $conn->prepare("SELECT COUNT(*) FROM notification_logs $where");
+                $stmt->execute($params);
+                $count = (int)$stmt->fetchColumn();
+                echo json_encode(['success' => true, 'unread_count' => $count]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'unread_count' => 0, 'message' => $e->getMessage()]);
+            }
+            break;
+            
+        case 'mark_read':
+            // Mark a single notification as read
+            $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
+            if (!$id) {
+                echo json_encode(['success' => false, 'message' => 'Notification ID required']);
+                exit;
+            }
+            try {
+                $stmt = $conn->prepare("UPDATE notification_logs SET is_read = 1 WHERE id = ?");
+                $stmt->execute([$id]);
+                echo json_encode(['success' => true, 'message' => 'Marked as read']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+            
+        case 'mark_all_read':
+            // Mark all notifications as read
+            try {
+                $typeFilter = $_GET['type'] ?? '';
+                $sql = "UPDATE notification_logs SET is_read = 1 WHERE is_read = 0";
+                $params = [];
+                if (!empty($typeFilter) && $typeFilter !== 'all') {
+                    $sql .= " AND type = ?";
+                    $params[] = $typeFilter;
+                }
+                $stmt = $conn->prepare($sql);
+                $stmt->execute($params);
+                echo json_encode(['success' => true, 'updated' => $stmt->rowCount()]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+            
+        case 'delete_notification':
+            // Delete a specific notification
+            $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
+            if (!$id) {
+                echo json_encode(['success' => false, 'message' => 'Notification ID required']);
+                exit;
+            }
+            try {
+                $stmt = $conn->prepare("DELETE FROM notification_logs WHERE id = ?");
+                $stmt->execute([$id]);
+                echo json_encode(['success' => true, 'message' => 'Notification deleted']);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+            
+        case 'clear_all':
+            // Clear all notifications (or by type)
+            try {
+                $typeFilter = $_GET['type'] ?? '';
+                $sql = "DELETE FROM notification_logs";
+                $params = [];
+                if (!empty($typeFilter) && $typeFilter !== 'all') {
+                    $sql .= " WHERE type = ?";
+                    $params[] = $typeFilter;
+                }
+                $stmt = $conn->prepare($sql);
+                $stmt->execute($params);
+                echo json_encode(['success' => true, 'deleted' => $stmt->rowCount()]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            }
+            break;
+
+        case 'get_types':
+            // Get distinct notification types for filtering
+            try {
+                $stmt = $conn->query("SELECT DISTINCT type FROM notification_logs WHERE type IS NOT NULL AND type != '' ORDER BY type ASC");
+                $types = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                echo json_encode(['success' => true, 'types' => $types]);
+            } catch (Exception $e) {
+                echo json_encode(['success' => false, 'types' => []]);
             }
             break;
     }

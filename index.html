@@ -254,6 +254,10 @@
         </div>
     </div>
     <div class="header-actions">
+        <a href="notification_center.php" class="header-btn" style="position:relative;text-decoration:none;" title="Notifications" id="notifBellBtn">
+            <i class="fa-solid fa-bell"></i>
+            <span id="notifBadgeHeader" class="badge-num" style="display:none;top:-4px;right:-4px;min-width:16px;height:16px;font-size:7px;">0</span>
+        </a>
         <button class="header-btn" onclick="toggleTheme()" title="Theme"><i class="fa-solid fa-palette"></i></button>
         <button class="header-btn" onclick="firebase.auth().signOut()" title="Logout"><i class="fa-solid fa-power-off"></i></button>
     </div>
@@ -641,9 +645,42 @@
             } catch(e) {}
         }
 
+        // 📬 Notification Badge Polling
+        async function updateNotifBadge() {
+            try {
+                const res = await fetch('api_fcm.php?action=get_unread_count');
+                const data = await res.json();
+                const badge = document.getElementById('notifBadgeHeader');
+                if (badge && data.success) {
+                    if (data.unread_count > 0) {
+                        badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                        badge.style.display = 'flex';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch(e) {}
+        }
+
+        // Register service worker for push notifications
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(reg => {
+                console.log('✅ SW registered:', reg.scope);
+            }).catch(err => {
+                console.log('SW registration failed:', err);
+            });
+        }
+
+        // Request notification permission on load
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
         window.onload = function() {
             fetchStats();
             updateLiveClock();
+            updateNotifBadge();
+            setInterval(updateNotifBadge, 30000); // Poll every 30 seconds
             setInterval(updateLiveClock, 1000); // Update clock every second
         };
         checkGatewayStatus();

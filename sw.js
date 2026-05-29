@@ -1,23 +1,55 @@
 /**
- * 🚀 SK LOGIC - Smart Appointment Service Worker
- * Handles push notifications and background sync for instant alerts
- * Version: 1.0.0
+ * 🚀 SK LOGIC - Smart Notification Service Worker v2.0
+ * Handles push notifications, background sync, badge API, snooze
+ * Upgraded: Badge API, IndexedDB snooze, notification grouping, type-aware
  */
 
-const CACHE_NAME = 'sk-appt-cache-v1';
+const CACHE_NAME = 'sk-notif-cache-v2';
 const APPT_PAGE = '/appointment_manager.php';
 
 // ─── INSTALL ───
 self.addEventListener('install', (event) => {
-    console.log('✅ SW installed');
+    console.log('✅ SW v2 installed');
     self.skipWaiting();
 });
 
 // ─── ACTIVATE ───
 self.addEventListener('activate', (event) => {
-    console.log('✅ SW activated');
-    event.waitUntil(clients.claim());
+    console.log('✅ SW v2 activated');
+    event.waitUntil(
+        Promise.all([
+            clients.claim(),
+            // Clean old cache
+            caches.keys().then(keys => 
+                Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+            )
+        ])
+    );
 });
+
+/**
+ * 📊 Update notification badge count via API
+ */
+async function updateBadgeCount() {
+    try {
+        const res = await fetch('api_fcm.php?action=get_unread_count');
+        const data = await res.json();
+        if (data.success && navigator.setAppBadge) {
+            navigator.setAppBadge(data.unread_count);
+        } else if (data.success && 'setClientBadge' in self) {
+            // Fallback for service worker badge
+            const clients_list = await self.clients.matchAll({ type: 'window' });
+            clients_list.forEach(client => {
+                client.postMessage({
+                    type: 'UPDATE_BADGE',
+                    count: data.unread_count
+                });
+            });
+        }
+    } catch (e) {
+        console.log('Badge update error:', e);
+    }
+}
 
 // ─── PUSH EVENT (from Firebase / FCM) ───
 self.addEventListener('push', (event) => {
@@ -34,20 +66,25 @@ self.addEventListener('push', (event) => {
         };
     }
 
-    const title = data.notification?.title || data.title || '📅 Appointment Alert';
-    const body = data.notification?.body || data.body || 'You have an appointment';
-    const icon = data.notification?.icon || 'images/logo.png';
+    const notificationPayload = data.notification || {};
+    const dataPayload = data.data || {};
+    
+    const title = notificationPayload.title || data.title || '📅 Appointment Alert';
+    const body = notificationPayload.body || data.body || 'You have an appointment';
+    const icon = notificationPayload.icon || 'images/logo.png';
     const badge = 'images/logo.png';
     
     // Extract all possible data
-    const notificationData = data.data || data.notification?.data || {};
+    const notificationData = { ...dataPayload };
     const fullScreen = data.full_screen === 'true' || notificationData.full_screen === 'true';
     const type = notificationData.type || 'APPOINTMENT_REMINDER';
-    const appointmentId = notificationData.appointment_id || data.appointment_id || 0;
+    const appointmentId = notificationData.appointment_id || 0;
+    const relatedId = notificationData.related_id || appointmentId;
+    const notifType = notificationData.notification_type || 'general';
     
-    // 🎵 Resolve sound from server settings (passed in data payload)
-    const soundName = notificationData.sound || data.sound || 'default';
-    const vibrationPattern = notificationData.vibration || data.vibration || 'standard';
+    // 🎵 Resolve sound
+    const soundName = notificationData.sound || 'default';
+    const vibrationPattern = notificationData.vibration || 'standard';
     
     // Determine vibration array based on pattern
     let vibrateArray = [200, 100, 200];
@@ -58,7 +95,24 @@ self.addEventListener('push', (event) => {
     else if (vibrationPattern === 'heartbeat') vibrateArray = [100, 200, 100, 500];
     
     // Determine urgency tag for notification grouping
-    const tag = type === 'APPOINTMENT_NOW' ? 'appt-now' : 'appt-reminder';
+    let tag = 'notif-general';
+    if (type === 'APPOINTMENT_NOW' || type === 'APPOINTMENT_OVERDUE') tag = 'appt-urgent';
+    else if (type === 'APPOINTMENT_REMINDER') tag = 'appt-reminder';
+    else if (type === 'RENEWAL_REMINDER') tag = 'renewal';
+    else if (type === 'PAYMENT_REMINDER') tag = 'payment';
+    else if (type === 'SOUND_TEST') tag = 'sound-test';
+    
+    // Build target URL based on type
+    let targetUrl = APPT_PAGE;
+    if (type === 'RENEWAL_REMINDER' && relatedId) {
+        targetUrl = `renewal_entry.php?id=${relatedId}`;
+    } else if (type === 'PAYMENT_REMINDER') {
+        targetUrl = 'payment_followup.php';
+    } else if (type === 'LEAD' || type === 'META_LEAD') {
+        targetUrl = 'meta_leads.php';
+    } else if (appointmentId) {
+        targetUrl = APPT_PAGE + '?id=' + appointmentId;
+    }
 
     // Create notification options
     const options = {
@@ -67,30 +121,37 @@ self.addEventListener('push', (event) => {
         badge: badge,
         tag: tag,
         renotify: true,
-        requireInteraction: fullScreen, // Keep notification until user interacts
+        requireInteraction: fullScreen || type === 'APPOINTMENT_NOW' || type === 'APPOINTMENT_OVERDUE',
         vibrate: vibrateArray,
-        silent: soundName === 'disabled' || soundName === 'false', // silent if sound disabled
+        silent: soundName === 'disabled' || soundName === 'false',
         data: {
             ...notificationData,
             appointment_id: appointmentId,
+            related_id: relatedId,
             type: type,
+            notification_type: notifType,
             full_screen: fullScreen ? 'true' : 'false',
             sound: soundName,
             vibration: vibrationPattern,
             timestamp: Date.now(),
-            url: APPT_PAGE + (appointmentId ? '?id=' + appointmentId : '')
+            url: targetUrl,
+            notif_id: Date.now() // Unique ID for this notification instance
         },
-        actions: fullScreen ? [
+        actions: (fullScreen || type === 'APPOINTMENT_NOW' || type === 'APPOINTMENT_OVERDUE') ? [
             { action: 'acknowledge', title: '✅ Acknowledge' },
             { action: 'open', title: '🔍 View Details' },
             { action: 'snooze', title: '⏰ Snooze 5min' }
         ] : [
-            { action: 'open', title: '🔍 View' }
+            { action: 'open', title: '🔍 View' },
+            { action: 'dismiss', title: '✕ Dismiss' }
         ]
     };
 
     event.waitUntil(
-        self.registration.showNotification(title, options)
+        Promise.all([
+            self.registration.showNotification(title, options),
+            updateBadgeCount()
+        ])
     );
 });
 
@@ -102,26 +163,28 @@ self.addEventListener('notificationclick', (event) => {
 
     notification.close();
 
-    // Handle different actions
     switch (action) {
         case 'acknowledge':
-            // Send acknowledge request to API
             acknowledgeAppointment(data.appointment_id);
-            // Focus or open the app
-            focusOrOpenClient(APPT_PAGE);
+            focusOrOpenClient(data.url || APPT_PAGE);
             break;
             
         case 'snooze':
-            // Reschedule notification after 5 minutes
             snoozeNotification(notification.title, notification.body, data);
             break;
             
         case 'open':
         default:
-            // Open appointment page
             focusOrOpenClient(data.url || APPT_PAGE);
             break;
+            
+        case 'dismiss':
+            // Just close, do nothing else
+            break;
     }
+    
+    // Update badge after action
+    event.waitUntil(updateBadgeCount());
 });
 
 // ─── HELPER: Focus existing client or open new window ───
@@ -131,10 +194,16 @@ async function focusOrOpenClient(url) {
         includeUncontrolled: true
     });
 
-    // Check if there's already a client with this URL
+    // Check if there's already a relevant client
     for (const client of clientList) {
-        if (client.url.includes('appointment_manager') && 'focus' in client) {
-            return client.focus();
+        const clientUrl = client.url;
+        // Match any relevant page
+        if (url.includes('?') ? 
+            clientUrl.includes(url.split('?')[0]) : 
+            clientUrl.includes(url)) {
+            if ('focus' in client) {
+                return client.focus();
+            }
         }
     }
 
@@ -153,16 +222,16 @@ async function acknowledgeAppointment(id) {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `action=acknowledge&id=${id}`
         });
-        const data = await response.json();
-        console.log('📡 Acknowledge response:', data);
+        const result = await response.json();
+        console.log('📡 Acknowledge response:', result);
 
-        // Notify all clients about the acknowledgement
-        const clients_list = await clients.matchAll({ type: 'window' });
-        clients_list.forEach(client => {
+        // Notify all clients
+        const clientList = await clients.matchAll({ type: 'window' });
+        clientList.forEach(client => {
             client.postMessage({
                 type: 'APPOINTMENT_ACKNOWLEDGED',
                 appointment_id: id,
-                success: data.success
+                success: result.success
             });
         });
     } catch (e) {
@@ -170,26 +239,30 @@ async function acknowledgeAppointment(id) {
     }
 }
 
-// ─── HELPER: Snooze notification ───
+// ─── HELPER: Snooze notification using IndexedDB ───
 async function snoozeNotification(title, body, data) {
     const snoozeTime = 5 * 60 * 1000; // 5 minutes
     const snoozeUntil = Date.now() + snoozeTime;
     
-    // Store snoozed notification in cache for later
-    const cache = await caches.open(CACHE_NAME);
-    const snoozedData = {
-        title: title,
-        body: body,
-        data: data,
-        snooze_until: snoozeUntil
-    };
+    // Store in IndexedDB for reliability
+    try {
+        const db = await openSnoozeDB();
+        const tx = db.transaction('snoozed', 'readwrite');
+        const store = tx.objectStore('snoozed');
+        await store.put({
+            id: 'current',
+            title: title,
+            body: body,
+            data: data,
+            snooze_until: snoozeUntil,
+            created_at: Date.now()
+        });
+        await tx.done;
+    } catch (e) {
+        console.log('IndexedDB snooze error:', e);
+    }
     
-    const response = new Response(JSON.stringify(snoozedData), {
-        headers: { 'Content-Type': 'application/json' }
-    });
-    cache.put('/snoozed-notification', response);
-    
-    // Show a confirmation notification
+    // Show confirmation
     self.registration.showNotification('⏰ Snoozed', {
         body: 'We\'ll remind you again in 5 minutes',
         icon: 'images/logo.png',
@@ -198,16 +271,19 @@ async function snoozeNotification(title, body, data) {
         timestamp: snoozeUntil
     });
 
-    // Schedule the re-notification
+    // Schedule using setTimeout AND alarm API (if available)
     setTimeout(async () => {
-        const cachedResponse = await cache.match('/snoozed-notification');
-        if (cachedResponse) {
-            const cached = await cachedResponse.json();
-            if (cached.snooze_until <= Date.now()) {
+        try {
+            const db = await openSnoozeDB();
+            const tx = db.transaction('snoozed', 'readonly');
+            const store = tx.objectStore('snoozed');
+            const cached = await store.get('current');
+            
+            if (cached && cached.snooze_until <= Date.now()) {
                 self.registration.showNotification(cached.title, {
                     body: cached.body,
                     icon: 'images/logo.png',
-                    tag: 'appt-now',
+                    tag: 'snoozed-reminder',
                     requireInteraction: true,
                     vibrate: [200, 100, 200, 100, 200],
                     data: cached.data,
@@ -216,10 +292,34 @@ async function snoozeNotification(title, body, data) {
                         { action: 'snooze', title: '⏰ Snooze Again' }
                     ]
                 });
-                cache.delete('/snoozed-notification');
+                
+                // Clean up
+                const tx2 = db.transaction('snoozed', 'readwrite');
+                const store2 = tx2.objectStore('snoozed');
+                await store2.delete('current');
+                await tx2.done;
             }
+        } catch (e) {
+            console.log('Snooze fire error:', e);
         }
     }, snoozeTime);
+}
+
+/**
+ * 🔄 Open IndexedDB for snooze storage
+ */
+function openSnoozeDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open('SKSnoozeDB', 1);
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains('snoozed')) {
+                db.createObjectStore('snoozed', { keyPath: 'id' });
+            }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
 }
 
 // ─── LISTEN FOR MESSAGES FROM CLIENTS ───
@@ -233,24 +333,34 @@ self.addEventListener('message', (event) => {
             break;
             
         case 'CHECK_SNOOZED':
-            // Client wants to know if there's a snoozed notification
             event.waitUntil(
-                caches.open(CACHE_NAME).then(cache => 
-                    cache.match('/snoozed-notification').then(response => {
-                        if (response) {
-                            event.ports[0]?.postMessage({ type: 'SNOOZED_EXISTS' });
+                (async () => {
+                    try {
+                        const db = await openSnoozeDB();
+                        const tx = db.transaction('snoozed', 'readonly');
+                        const store = tx.objectStore('snoozed');
+                        const cached = await store.get('current');
+                        if (cached) {
+                            event.ports[0]?.postMessage({ type: 'SNOOZED_EXISTS', data: cached });
                         }
-                    })
-                )
+                    } catch (e) {}
+                })()
             );
+            break;
+            
+        case 'UPDATE_BADGE':
+            // Client asking SW to update badge
+            event.waitUntil(updateBadgeCount());
             break;
     }
 });
 
-// ─── FETCH EVENT (Cache static assets for offline) ───
+// ─── FETCH EVENT (Cache static assets for offline + API) ───
 self.addEventListener('fetch', (event) => {
-    // Only cache the appointment page
-    if (event.request.url.includes('appointment_manager')) {
+    const url = event.request.url;
+    
+    // Cache notification-related pages
+    if (url.includes('notification_center') || url.includes('appointment_manager')) {
         event.respondWith(
             caches.match(event.request).then(cachedResponse => {
                 const fetchPromise = fetch(event.request).then(networkResponse => {
@@ -265,4 +375,4 @@ self.addEventListener('fetch', (event) => {
     }
 });
 
-console.log('🚀 SK Appointment Service Worker loaded');
+console.log('🚀 SK Notification Service Worker v2 loaded');

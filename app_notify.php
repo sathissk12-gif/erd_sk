@@ -1,8 +1,9 @@
 <?php
 /**
- * 🤖 DYNAMIC AUTOMATION TRIGGER ENGINE (v2)
+ * 🤖 DYNAMIC AUTOMATION TRIGGER ENGINE (v3)
  * Smart Appointment Reminders with Multi-Level Sequence
  * Instant + Full-Screen + Voice + Sequential Reminders
+ * Upgraded: Enhanced logging with type & related_id, quiet hours support
  */
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -13,7 +14,28 @@ $allSettings = [];
 $res = $conn->query("SELECT * FROM system_settings")->fetchAll(PDO::FETCH_ASSOC);
 foreach ($res as $row) { $allSettings[$row['key_name']] = $row['key_value']; }
 
+/**
+ * Check if quiet hours are active (notifications muted)
+ */
+function isQuietHours($settings) {
+    $quietStart = $settings['quiet_hours_start'] ?? '';
+    $quietEnd = $settings['quiet_hours_end'] ?? '';
+    if (empty($quietStart) || empty($quietEnd)) return false;
+    
+    $currentTime = date('H:i');
+    
+    // Handle overnight quiet hours (e.g., 22:00 - 07:00)
+    if ($quietEnd < $quietStart) {
+        return ($currentTime >= $quietStart || $currentTime <= $quietEnd);
+    }
+    return ($currentTime >= $quietStart && $currentTime <= $quietEnd);
+}
+
 $notifyAction = $_GET['action'] ?? '';
+
+// Check quiet hours for non-critical notifications
+$isQuiet = isQuietHours($allSettings);
+$isOverdueOnly = $isQuiet && ($_GET['force'] ?? '') !== 'yes';
 
 switch ($notifyAction) {
     // ─── SMART APPOINTMENT CHECK (Multi-Level) ───
@@ -23,7 +45,7 @@ switch ($notifyAction) {
         $today = date('Y-m-d');
         $now = date('H:i:s');
         
-        // 🎯 Level 0: Overdue appointments (not acknowledged)
+        // 🎯 Level 0: Overdue appointments (not acknowledged) - ALWAYS send even during quiet hours
         $q0 = "SELECT *, 'overdue' as alert_level FROM appointment_log 
                WHERE appointment_date < '$today' 
                AND status = 'Pending' 
@@ -58,84 +80,92 @@ switch ($notifyAction) {
         // Helper to get sound state from settings
         $apptSoundEnabled = ($allSettings['appt_sound_enabled'] ?? '1') === '1';
         
-        // Process Overdue (Level 3 - highest urgency)
-        $stmt = $conn->query($q0);
-        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $title = "🚨 OVERDUE APPOINTMENT!";
-            $msg = $row['customer_name'] . " was scheduled for " . date('h:i A', strtotime($row['appointment_time'])) . ". Not attended yet!";
-            
-            $extraData = [
-                'full_screen' => 'true',
-                'type' => 'APPOINTMENT_OVERDUE',
-                'appointment_id' => $row['id'],
-                'customer_name' => $row['customer_name'],
-                'vehicle_no' => $row['vehicle_no'] ?? '',
-                'mobile' => $row['mobile_number'] ?? '',
-                'purpose' => $row['purpose'] ?? ''
-            ];
-            
-            sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment');
-            $conn->prepare("UPDATE appointment_log SET reminder_level = 3 WHERE id = ?")->execute([$row['id']]);
-            $count['overdue']++;
+        // Process Overdue (Level 3 - highest urgency) - Skip if quiet hours and not forced
+        if (!$isOverdueOnly) {
+            $stmt = $conn->query($q0);
+            while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $title = "🚨 OVERDUE APPOINTMENT!";
+                $msg = $row['customer_name'] . " was scheduled for " . date('h:i A', strtotime($row['appointment_time'])) . ". Not attended yet!";
+                
+                $extraData = [
+                    'full_screen' => 'true',
+                    'type' => 'APPOINTMENT_OVERDUE',
+                    'appointment_id' => $row['id'],
+                    'customer_name' => $row['customer_name'],
+                    'vehicle_no' => $row['vehicle_no'] ?? '',
+                    'mobile' => $row['mobile_number'] ?? '',
+                    'purpose' => $row['purpose'] ?? ''
+                ];
+                
+                sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment', $row['id']);
+                $conn->prepare("UPDATE appointment_log SET reminder_level = 3 WHERE id = ?")->execute([$row['id']]);
+                $count['overdue']++;
+            }
         }
         
         // Process NOW appointments (Level 2)
-        $stmt = $conn->query($q1);
-        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $title = "🔴 APPOINTMENT NOW!";
-            $msg = $row['customer_name'] . " - " . ($row['vehicle_no'] ?: 'No vehicle') . " - " . ($row['purpose'] ?: 'General');
-            
-            $extraData = [
-                'full_screen' => 'true',
-                'type' => 'APPOINTMENT_NOW',
-                'appointment_id' => $row['id'],
-                'customer_name' => $row['customer_name'],
-                'vehicle_no' => $row['vehicle_no'] ?? '',
-                'mobile' => $row['mobile_number'] ?? '',
-                'purpose' => $row['purpose'] ?? ''
-            ];
-            
-            sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment');
-            $conn->prepare("UPDATE appointment_log SET reminder_level = 2, reminder_sent = 1 WHERE id = ?")->execute([$row['id']]);
-            $count['now']++;
+        if (!$isOverdueOnly) {
+            $stmt = $conn->query($q1);
+            while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $title = "🔴 APPOINTMENT NOW!";
+                $msg = $row['customer_name'] . " - " . ($row['vehicle_no'] ?: 'No vehicle') . " - " . ($row['purpose'] ?: 'General');
+                
+                $extraData = [
+                    'full_screen' => 'true',
+                    'type' => 'APPOINTMENT_NOW',
+                    'appointment_id' => $row['id'],
+                    'customer_name' => $row['customer_name'],
+                    'vehicle_no' => $row['vehicle_no'] ?? '',
+                    'mobile' => $row['mobile_number'] ?? '',
+                    'purpose' => $row['purpose'] ?? ''
+                ];
+                
+                sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment', $row['id']);
+                $conn->prepare("UPDATE appointment_log SET reminder_level = 2, reminder_sent = 1 WHERE id = ?")->execute([$row['id']]);
+                $count['now']++;
+            }
         }
         
         // Process Upcoming reminders (Level 1)
-        $stmt = $conn->query($q2);
-        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $title = "📅 UPCOMING APPOINTMENT";
-            $msg = $row['customer_name'] . " at " . date('h:i A', strtotime($row['appointment_time'])) . " (" . $leadMinutes . " min notice)";
-            
-            $extraData = [
-                'full_screen' => $fullScreen ? 'true' : 'false',
-                'type' => 'APPOINTMENT_REMINDER',
-                'appointment_id' => $row['id'],
-                'customer_name' => $row['customer_name'],
-                'vehicle_no' => $row['vehicle_no'] ?? ''
-            ];
-            
-            sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment');
-            $conn->prepare("UPDATE appointment_log SET reminder_sent = 1, reminder_level = 1 WHERE id = ?")->execute([$row['id']]);
-            $count['upcoming']++;
+        if (!$isOverdueOnly) {
+            $stmt = $conn->query($q2);
+            while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $title = "📅 UPCOMING APPOINTMENT";
+                $msg = $row['customer_name'] . " at " . date('h:i A', strtotime($row['appointment_time'])) . " (" . $leadMinutes . " min notice)";
+                
+                $extraData = [
+                    'full_screen' => $fullScreen ? 'true' : 'false',
+                    'type' => 'APPOINTMENT_REMINDER',
+                    'appointment_id' => $row['id'],
+                    'customer_name' => $row['customer_name'],
+                    'vehicle_no' => $row['vehicle_no'] ?? ''
+                ];
+                
+                sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment', $row['id']);
+                $conn->prepare("UPDATE appointment_log SET reminder_sent = 1, reminder_level = 1 WHERE id = ?")->execute([$row['id']]);
+                $count['upcoming']++;
+            }
         }
         
         // Process Future Day-before reminders (Level 0 - always silent)
-        $stmt = $conn->query($q3);
-        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $title = "📌 TOMORROW'S APPOINTMENT";
-            $tomorrow = date('d M', strtotime($row['appointment_date']));
-            $msg = $row['customer_name'] . " on " . $tomorrow . " at " . date('h:i A', strtotime($row['appointment_time']));
-            
-            $extraData = [
-                'full_screen' => 'false',
-                'type' => 'APPOINTMENT_REMINDER',
-                'appointment_id' => $row['id']
-            ];
-            
-            // Silent notification - no sound
-            sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment');
-            $conn->prepare("UPDATE appointment_log SET reminder_sent = 1, reminder_level = 0 WHERE id = ?")->execute([$row['id']]);
-            $count['future']++;
+        if (!$isOverdueOnly) {
+            $stmt = $conn->query($q3);
+            while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $title = "📌 TOMORROW'S APPOINTMENT";
+                $tomorrow = date('d M', strtotime($row['appointment_date']));
+                $msg = $row['customer_name'] . " on " . $tomorrow . " at " . date('h:i A', strtotime($row['appointment_time']));
+                
+                $extraData = [
+                    'full_screen' => 'false',
+                    'type' => 'APPOINTMENT_REMINDER',
+                    'appointment_id' => $row['id']
+                ];
+                
+                // Silent notification - no sound
+                sendPushNotification($title, $msg, '/topics/all', $extraData, 'appointment', $row['id']);
+                $conn->prepare("UPDATE appointment_log SET reminder_sent = 1, reminder_level = 0 WHERE id = ?")->execute([$row['id']]);
+                $count['future']++;
+            }
         }
         
         echo json_encode([
@@ -144,7 +174,8 @@ switch ($notifyAction) {
             'total' => array_sum($count),
             'target_time' => $targetTime,
             'lead_minutes' => $leadMinutes,
-            'full_screen' => $fullScreen
+            'full_screen' => $fullScreen,
+            'quiet_hours' => $isQuiet ? 'active' : 'inactive'
         ]);
         break;
 
@@ -152,6 +183,12 @@ switch ($notifyAction) {
     case 'check_payments':
         if (($allSettings['enable_payment_alerts'] ?? '0') == '0') {
             echo json_encode(['success' => false, 'message' => 'Payment alerts disabled']);
+            exit;
+        }
+
+        // Skip during quiet hours
+        if ($isQuiet && !$isOverdueOnly) {
+            echo json_encode(['success' => false, 'message' => 'Quiet hours active, skipped']);
             exit;
         }
 
@@ -183,6 +220,12 @@ switch ($notifyAction) {
     // ─── EXISTING: check_renewals ───
     case 'check_renewals':
         try {
+            // Skip during quiet hours
+            if ($isQuiet && !$isOverdueOnly) {
+                echo json_encode(['success' => false, 'message' => 'Quiet hours active, skipped']);
+                exit;
+            }
+
             if (($allSettings['enable_renewal_alerts'] ?? '0') == '0') {
                 echo json_encode(['success' => false, 'message' => 'Renewal alerts disabled']);
                 exit;
@@ -213,6 +256,7 @@ switch ($notifyAction) {
                 $software = $row['software'] ?? $row['software_type'] ?? "N/A";
                 $amount = $row['amount'] ?? 0;
                 $diff = (int)$row['diff'];
+                $renewalId = $row['id'] ?? null;
                 
                 if ($diff < 0) {
                     $title = "🚨 EXPIRED: $vehicle";
@@ -233,10 +277,11 @@ switch ($notifyAction) {
                     'vehicle' => $vehicle,
                     'customer' => $customer,
                     'amount' => $amount,
-                    'software' => $software
+                    'software' => $software,
+                    'renewal_id' => $renewalId
                 ];
                 
-                sendPushNotification($title, $msg, '/topics/all', $extraData, 'renewal');
+                sendPushNotification($title, $msg, '/topics/all', $extraData, 'renewal', $renewalId);
                 $count++;
             }
             echo json_encode(['success' => true, 'renewals_notified' => $count]);
@@ -244,6 +289,49 @@ switch ($notifyAction) {
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
         exit;
+        break;
+
+    // ─── NEW: Get notification summary for dashboard ───
+    case 'summary':
+        try {
+            $today = date('Y-m-d');
+            
+            // Today's appointments count
+            $apptToday = $conn->query("SELECT COUNT(*) FROM appointment_log WHERE appointment_date = '$today' AND status = 'Pending'")->fetchColumn();
+            
+            // Overdue appointments
+            $apptOverdue = $conn->query("SELECT COUNT(*) FROM appointment_log WHERE appointment_date < '$today' AND status = 'Pending' AND acknowledged_at IS NULL")->fetchColumn();
+            
+            // Pending payments
+            $paymentsDue = 0;
+            try {
+                $paymentsDue = $conn->query("SELECT COUNT(*) FROM payment_followups WHERE followup_date = '$today' AND status = 'PENDING'")->fetchColumn();
+            } catch (Exception $e) {}
+            
+            // Expiring renewals within 7 days
+            $renewalsDue = 0;
+            try {
+                $renewalsDue = $conn->query("SELECT COUNT(*) FROM renewal_log WHERE DATEDIFF(valid_to, CURDATE()) BETWEEN 0 AND 7 AND UPPER(TRIM(status)) IN ('PENDING', 'NO')")->fetchColumn();
+            } catch (Exception $e) {}
+            
+            // Unread notifications
+            $unreadNotifs = 0;
+            try {
+                $unreadNotifs = $conn->query("SELECT COUNT(*) FROM notification_logs WHERE is_read = 0")->fetchColumn();
+            } catch (Exception $e) {}
+            
+            echo json_encode([
+                'success' => true,
+                'appointments_today' => (int)$apptToday,
+                'appointments_overdue' => (int)$apptOverdue,
+                'payments_due' => (int)$paymentsDue,
+                'renewals_due' => (int)$renewalsDue,
+                'unread_notifications' => (int)$unreadNotifs,
+                'quiet_hours' => $isQuiet ? 'active' : 'inactive'
+            ]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
         break;
 }
 ?>

@@ -34,7 +34,18 @@ $defaults = [
     'notification_sound_lead' => 'chime',
     'notification_custom_sound' => '',
     'notification_vibration' => '1',
-    'notification_vibration_pattern' => 'standard'
+    'notification_vibration_pattern' => 'standard',
+    // 🔕 Quiet Hours Settings
+    'quiet_hours_enabled' => '0',
+    'quiet_hours_start' => '22:00',
+    'quiet_hours_end' => '07:00',
+    // 📧 Additional Channels
+    'enable_email_notifications' => '0',
+    'email_recipient' => '',
+    // 📊 Grouping & Digest
+    'notification_grouping' => '1',
+    'daily_digest_enabled' => '0',
+    'daily_digest_time' => '08:00'
 ];
 
 foreach ($defaults as $k => $v) {
@@ -82,8 +93,19 @@ foreach ($res as $row) {
         .alert { padding: 15px; border-radius: 10px; background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); margin-bottom: 20px; text-align: center; }
         .back-link { display: block; text-align: center; margin-top: 20px; color: #94a3b8; text-decoration: none; font-size: 14px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
         .badge { display: inline-block; font-size: 9px; background: var(--primary); padding: 2px 8px; border-radius: 99px; margin-left: 8px; vertical-align: middle; }
-        @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+        .badge-green { background: #10b981; }
+        .badge-orange { background: #f59e0b; }
+        .switch-wrap { display: flex; align-items: center; gap: 12px; }
+        .switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; inset: 0; background: rgba(255,255,255,0.1); border-radius: 24px; transition: 0.3s; }
+        .slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+        .switch input:checked + .slider { background: var(--primary); }
+        .switch input:checked + .slider:before { transform: translateX(20px); }
+        .hint { font-size: 11px; color: #64748b; margin-top: 4px; }
+        @media (max-width: 600px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
@@ -248,13 +270,11 @@ foreach ($res as $row) {
                     soundName = customInput.value;
                 }
                 
-                // Show test feedback
                 const btn = document.querySelector('button[onclick="testSound()"]');
                 const origText = btn.innerHTML;
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Testing...';
                 btn.style.opacity = '0.7';
                 
-                // Send test notification via FCM
                 fetch('api_fcm.php?action=test_sound', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -280,6 +300,30 @@ foreach ($res as $row) {
                 });
             }
             </script>
+
+            <!-- 🔕 QUIET HOURS -->
+            <h2 style="margin-top:30px;"><i class="fa-solid fa-moon"></i> Quiet Hours <span class="badge badge-green">NEW</span></h2>
+            <p style="color:#64748b;font-size:11px;margin-bottom:16px;">During quiet hours, non-urgent notifications are muted (overdue alerts still come through).</p>
+
+            <div class="form-group switch-wrap">
+                <label class="switch">
+                    <input type="hidden" name="quiet_hours_enabled" value="0">
+                    <input type="checkbox" name="quiet_hours_enabled" value="1" <?= ($settings['quiet_hours_enabled'] ?? '0') == '1' ? 'checked' : '' ?> onchange="document.getElementById('quietHoursGroup').style.display=this.checked?'grid':'none'">
+                    <span class="slider"></span>
+                </label>
+                <span style="font-size:13px;font-weight:600;">Enable Quiet Hours</span>
+            </div>
+
+            <div class="grid-2" id="quietHoursGroup" style="<?= ($settings['quiet_hours_enabled'] ?? '0') == '1' ? '' : 'display:none;' ?>">
+                <div class="form-group">
+                    <label>🌙 Start Time</label>
+                    <input type="time" name="quiet_hours_start" class="input" value="<?= htmlspecialchars($settings['quiet_hours_start'] ?? '22:00') ?>">
+                </div>
+                <div class="form-group">
+                    <label>🌅 End Time</label>
+                    <input type="time" name="quiet_hours_end" class="input" value="<?= htmlspecialchars($settings['quiet_hours_end'] ?? '07:00') ?>">
+                </div>
+            </div>
 
             <div class="form-group">
                 <label>🖥️ Full Screen UI</label>
@@ -343,6 +387,51 @@ foreach ($res as $row) {
                 </div>
             </div>
 
+            <!-- 📧 NOTIFICATION CHANNELS -->
+            <h2><i class="fa-solid fa-envelope"></i> Additional Channels <span class="badge badge-green">NEW</span></h2>
+
+            <div class="form-group switch-wrap">
+                <label class="switch">
+                    <input type="hidden" name="enable_email_notifications" value="0">
+                    <input type="checkbox" name="enable_email_notifications" value="1" <?= ($settings['enable_email_notifications'] ?? '0') == '1' ? 'checked' : '' ?> onchange="document.getElementById('emailGroup').style.display=this.checked?'grid':'none'">
+                    <span class="slider"></span>
+                </label>
+                <span style="font-size:13px;font-weight:600;">Enable Email Notifications</span>
+            </div>
+
+            <div class="form-group" id="emailGroup" style="<?= ($settings['enable_email_notifications'] ?? '0') == '1' ? '' : 'display:none;' ?>">
+                <label>📧 Email Recipient</label>
+                <input type="email" name="email_recipient" class="input" placeholder="admin@example.com" value="<?= htmlspecialchars($settings['email_recipient'] ?? '') ?>">
+                <div class="hint">Receive notification summaries via email (requires PHP mail configuration).</div>
+            </div>
+
+            <!-- 📊 GROUPING & DIGEST -->
+            <h2><i class="fa-solid fa-layer-group"></i> Grouping & Digest <span class="badge badge-orange">NEW</span></h2>
+
+            <div class="form-group switch-wrap">
+                <label class="switch">
+                    <input type="hidden" name="notification_grouping" value="0">
+                    <input type="checkbox" name="notification_grouping" value="1" <?= ($settings['notification_grouping'] ?? '1') == '1' ? 'checked' : '' ?>>
+                    <span class="slider"></span>
+                </label>
+                <span style="font-size:13px;font-weight:600;">Group Similar Notifications</span>
+            </div>
+            <div class="hint" style="margin-top:-12px;margin-bottom:16px;">Combine multiple alerts of the same type into a single notification.</div>
+
+            <div class="form-group switch-wrap">
+                <label class="switch">
+                    <input type="hidden" name="daily_digest_enabled" value="0">
+                    <input type="checkbox" name="daily_digest_enabled" value="1" <?= ($settings['daily_digest_enabled'] ?? '0') == '1' ? 'checked' : '' ?> onchange="document.getElementById('digestTime').style.display=this.checked?'block':'none'">
+                    <span class="slider"></span>
+                </label>
+                <span style="font-size:13px;font-weight:600;">Daily Digest Summary</span>
+            </div>
+            <div class="form-group" id="digestTime" style="<?= ($settings['daily_digest_enabled'] ?? '0') == '1' ? '' : 'display:none;' ?>">
+                <label>🕐 Digest Time</label>
+                <input type="time" name="daily_digest_time" class="input" value="<?= htmlspecialchars($settings['daily_digest_time'] ?? '08:00') ?>">
+                <div class="hint">Receive a daily summary of all pending items at this time.</div>
+            </div>
+
             <!-- 🔌 FCM SETTINGS -->
             <h2><i class="fa-solid fa-plug"></i> Firebase Configuration</h2>
 
@@ -353,9 +442,13 @@ foreach ($res as $row) {
 
             <button type="submit" class="btn"><i class="fa-solid fa-save"></i> Save Smart Configuration</button>
             
-            <div style="text-align:center;margin-top:15px;">
+            <div style="display:flex;gap:8px;margin-top:12px;justify-content:center;">
                 <a href="app_notify.php?action=check_appointments" style="color:#64748b;text-decoration:none;font-size:12px;" target="_blank">
-                    <i class="fa-solid fa-arrow-right"></i> Test Appointment Notifications Now
+                    <i class="fa-solid fa-arrow-right"></i> Test Appointment Alerts
+                </a>
+                <span style="color:var(--border);">|</span>
+                <a href="notification_center.php" style="color:var(--primary);text-decoration:none;font-size:12px;" target="_blank">
+                    <i class="fa-solid fa-inbox"></i> Notification Inbox
                 </a>
             </div>
         </form>
