@@ -7,8 +7,6 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script src="firebase_config.js"></script>
@@ -17,16 +15,13 @@
 
     <style>
         :root {
-            --primary: #f43f5e; --primary-glow: rgba(244, 63, 94, 0.4); --secondary: #8b5cf6;
             --income: #10b981; --income-glow: rgba(16, 185, 129, 0.3);
-            --expense: #f43f5e; --expense-glow: rgba(244, 63, 94, 0.3);
-            --bg: #030712; --surface: rgba(15, 23, 42, 0.7);
-            --border: rgba(255, 255, 255, 0.08); --text: #ffffff; --text-dim: #94a3b8;
+            --expense: #ef4444; --expense-glow: rgba(239, 68, 68, 0.3);
         }
         * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background: radial-gradient(circle at top right, #1e1b4b, #030712);
+            background: var(--body-gradient, radial-gradient(circle at top right, #1e1b4b, #030712));
             color: var(--text); min-height: 100vh;
             display: flex; flex-direction: column;
             padding-top: env(safe-area-inset-top, 0px); padding-bottom: 100px;
@@ -108,13 +103,6 @@
             display: flex; align-items: center; justify-content: center; gap: 6px;
         }
         .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 8px 20px var(--primary-glow); }
-
-        /* ─── CHART ─── */
-        .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px; margin-bottom: 20px; backdrop-filter: blur(20px); }
-        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .chart-title { font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
-        .chart-wrap { position: relative; height: 200px; }
-        .chart-wrap canvas { width: 100% !important; height: 100% !important; }
 
         /* ─── ITEM CHIPS FOR QUICK ADD ─── */
         .quick-items-section { margin-bottom: 20px; }
@@ -344,6 +332,25 @@
         }
         .search-input:focus { border-color: var(--primary); }
 
+        /* ─── QUICK ADD FILTER ─── */
+        .qa-filter-row { display: flex; gap: 4px; background: rgba(0,0,0,0.15); border-radius: 10px; padding: 3px; }
+        .qa-filter-btn {
+            padding: 6px 13px; border-radius: 8px; border: none; font-size: 10px; font-weight: 700;
+            cursor: pointer; transition: 0.2s; background: transparent; color: var(--text-dim);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .qa-filter-btn.active { background: var(--primary); color: white; }
+
+        /* ─── CALCULATOR ─── */
+        .calc-btn {
+            padding: 12px 6px; border-radius: 10px; border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04); color: var(--text); font-size: 14px; font-weight: 700;
+            cursor: pointer; transition: 0.15s; font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .calc-btn:active { background: var(--primary); border-color: var(--primary); color: white; transform: scale(0.92); }
+        .calc-btn.calc-op { color: var(--primary); font-weight: 800; }
+        .calc-btn.calc-eq { font-weight: 800; }
+
         @media (max-width: 380px) {
             .summary-row { gap: 6px; }
             .summary-card { padding: 12px 8px; }
@@ -417,27 +424,25 @@
         <button class="tab-btn" data-tab="expense" onclick="setTab('expense')"><i class="fa-solid fa-arrow-up"></i> Expense</button>
     </div>
 
-    <!-- Quick Add Items Grid -->
+    <!-- Quick Add Items Grid with Filter -->
     <div class="quick-items-section" id="quickItemsSection">
         <div class="quick-items-title">
             ⚡ Quick Add
-            <a onclick="openItemsManager()">⚙️ Manage Items</a>
+            <div class="qa-filter-row">
+                <button class="qa-filter-btn active" data-qfilter="all" onclick="setQuickFilter('all')">All</button>
+                <button class="qa-filter-btn" data-qfilter="income" onclick="setQuickFilter('income')">💰 Income</button>
+                <button class="qa-filter-btn" data-qfilter="expense" onclick="setQuickFilter('expense')">📤 Expense</button>
+            </div>
         </div>
         <div class="quick-item-grid" id="quickItemGrid"></div>
+        <div style="text-align:right;margin-top:4px;">
+            <a onclick="openItemsManager()" style="color:var(--text-dim);font-size:10px;font-weight:700;cursor:pointer;">⚙️ Manage Items</a>
+        </div>
     </div>
 
     <!-- Search Bar -->
     <div class="search-wrap" id="searchWrap" style="display:none;">
         <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search items or notes..." oninput="doSearch()">
-    </div>
-
-    <!-- Chart -->
-    <div class="chart-card" id="chartCard">
-        <div class="chart-header">
-            <span class="chart-title">📊 Daily Trend</span>
-            <span style="font-size:10px;color:var(--text-dim);" id="chartRange"></span>
-        </div>
-        <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
     </div>
 
     <!-- Category Chips -->
@@ -498,7 +503,33 @@
 
         <div class="form-group">
             <label class="form-label">Amount (₹)</label>
-            <input type="number" class="form-input" id="addAmount" placeholder="0.00" step="0.01" min="0">
+            <input type="number" class="form-input" id="addAmount" placeholder="0.00" step="0.01" min="0" inputmode="decimal">
+            <button class="btn-sm" onclick="toggleCalc()" style="margin-top:6px;width:100%;" id="calcToggle">🧮 Calculator</button>
+            <div class="calc-wrap" id="calcWrap" style="display:none;margin-top:8px;background:rgba(0,0,0,0.15);border-radius:14px;padding:10px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;">
+                    <button class="calc-btn" onclick="calcInput('7')">7</button>
+                    <button class="calc-btn" onclick="calcInput('8')">8</button>
+                    <button class="calc-btn" onclick="calcInput('9')">9</button>
+                    <button class="calc-btn calc-op" onclick="calcOp('/')">÷</button>
+                    <button class="calc-btn" onclick="calcInput('4')">4</button>
+                    <button class="calc-btn" onclick="calcInput('5')">5</button>
+                    <button class="calc-btn" onclick="calcInput('6')">6</button>
+                    <button class="calc-btn calc-op" onclick="calcOp('*')">×</button>
+                    <button class="calc-btn" onclick="calcInput('1')">1</button>
+                    <button class="calc-btn" onclick="calcInput('2')">2</button>
+                    <button class="calc-btn" onclick="calcInput('3')">3</button>
+                    <button class="calc-btn calc-op" onclick="calcOp('-')">−</button>
+                    <button class="calc-btn" onclick="calcInput('0')">0</button>
+                    <button class="calc-btn" onclick="calcInput('00')">00</button>
+                    <button class="calc-btn" onclick="calcInput('.')">.</button>
+                    <button class="calc-btn calc-op" onclick="calcOp('+')">+</button>
+                </div>
+                <div style="display:flex;gap:5px;margin-top:5px;">
+                    <button class="calc-btn calc-clr" onclick="calcClear()" style="flex:1;background:rgba(239,68,68,0.2);color:#ef4444;">C</button>
+                    <button class="calc-btn calc-eq" onclick="calcEquals()" style="flex:2;background:var(--primary);color:white;">=</button>
+                </div>
+                <div style="font-size:10px;color:var(--text-dim);text-align:right;margin-top:4px;min-height:14px;" id="calcExpr"></div>
+            </div>
         </div>
         <div class="form-group">
             <label class="form-label">Date</label>
@@ -573,10 +604,11 @@
     let addType = 'expense';
     let newItemType = 'expense';
     let isYearView = false;
-    let trendChart = null;
     let savedItems = [];
     let allTransactions = [];
-    let quickFilterType = 'all'; // for quick add grid filter
+    let quickFilterType = 'all';
+    let calcExpr = '';
+    let calcResetOnInput = false;
 
     const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const COMMON_ICONS = [
@@ -642,7 +674,6 @@
     function toggleYearView() {
         isYearView = !isYearView;
         document.getElementById('yearView').style.display = isYearView ? 'block' : 'none';
-        document.getElementById('chartCard').style.display = isYearView ? 'none' : 'block';
         document.getElementById('catChips').style.display = isYearView ? 'none' : 'flex';
         document.getElementById('txnList').style.display = isYearView ? 'none' : 'block';
         document.getElementById('quickItemsSection').style.display = isYearView ? 'none' : 'block';
@@ -695,7 +726,6 @@
             if (itemsData.status === 'ok') savedItems = itemsData.items;
 
             updateSummaryCards(summaryData);
-            updateChart(summaryData);
             updateCategoryChips(summaryData);
             renderQuickItems();
             renderTransactions();
@@ -712,37 +742,6 @@
         const balEl = document.getElementById('sumBalance');
         balEl.innerText = (bal >= 0 ? '₹' : '-₹') + Math.abs(bal).toLocaleString();
         balEl.style.color = bal >= 0 ? 'var(--income)' : 'var(--expense)';
-    }
-
-    function updateChart(data) {
-        if (!data || data.status !== 'ok') return;
-        const daily = data.daily || [];
-        document.getElementById('chartRange').innerText = `${MONTHS[currentMonth-1]} ${currentYear}`;
-        const labels = daily.map(d => new Date(d.date + 'T00:00:00').getDate());
-        const incomeData = daily.map(d => d.income || 0);
-        const expenseData = daily.map(d => d.expense || 0);
-        const ctx = document.getElementById('trendChart').getContext('2d');
-        if (trendChart) trendChart.destroy();
-        const isDark = document.documentElement.getAttribute('data-theme') !== 'light' && document.documentElement.getAttribute('data-theme') !== 'traxen';
-        const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-        trendChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Income', data: incomeData, backgroundColor: 'rgba(16,185,129,0.6)', borderColor: '#10b981', borderWidth: 1, borderRadius: 8, borderSkipped: false },
-                    { label: 'Expense', data: expenseData, backgroundColor: 'rgba(244,63,94,0.6)', borderColor: '#f43f5e', borderWidth: 1, borderRadius: 8, borderSkipped: false }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: isDark ? '#94a3b8' : '#475569', font: { family: 'Plus Jakarta Sans', size: 11 }, usePointStyle: true, padding: 16 } } },
-                scales: {
-                    x: { grid: { color: gridColor }, ticks: { color: '#64748b', font: { size: 10 } } },
-                    y: { grid: { color: gridColor }, ticks: { color: '#64748b', font: { size: 10 }, callback: v => '₹' + v } }
-                }
-            }
-        });
     }
 
     function updateCategoryChips(data) {
@@ -764,13 +763,21 @@
         doSearch();
     }
 
+    // ─── QUICK FILTER ───
+    function setQuickFilter(type) {
+        quickFilterType = type;
+        document.querySelectorAll('.qa-filter-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.qfilter === type);
+        });
+        renderQuickItems();
+    }
+
     // ─── QUICK ITEMS GRID (on main page) ───
     function renderQuickItems() {
         const grid = document.getElementById('quickItemGrid');
-        // Show items filtered by current tab, or show all
         let items = savedItems;
-        if (currentTab === 'income') items = items.filter(i => i.type === 'income' || i.type === 'both');
-        else if (currentTab === 'expense') items = items.filter(i => i.type === 'expense' || i.type === 'both');
+        if (quickFilterType === 'income') items = items.filter(i => i.type === 'income' || i.type === 'both');
+        else if (quickFilterType === 'expense') items = items.filter(i => i.type === 'expense' || i.type === 'both');
 
         if (items.length === 0) {
             grid.innerHTML = `<div class="item-pick-add" onclick="openItemsManager()" style="grid-column:1/-1;">
@@ -792,11 +799,15 @@
         addType = itemType === 'income' ? 'income' : 'expense';
         setAddTypeUI(addType);
         selectAddItem(name, icon);
+        document.getElementById('addItemGrid').parentElement.style.display = 'none';
         document.getElementById('addAmount').value = '';
         document.getElementById('addNote').value = '';
         document.getElementById('editTxnId').value = '';
         document.getElementById('btnDeleteTxn').style.display = 'none';
         document.getElementById('btnSaveTxn').innerHTML = '💾 Save';
+        calcClear();
+        document.getElementById('calcWrap').style.display = 'none';
+        document.getElementById('calcToggle').innerHTML = '🧮 Calculator';
         document.getElementById('addModalOverlay').classList.add('show');
         setTimeout(() => document.getElementById('addAmount').focus(), 400);
     }
@@ -812,7 +823,11 @@
         document.getElementById('editTxnId').value = '';
         document.getElementById('btnDeleteTxn').style.display = 'none';
         document.getElementById('btnSaveTxn').innerHTML = '💾 Save';
+        document.getElementById('addItemGrid').parentElement.style.display = 'block';
         renderAddItemGrid();
+        calcClear();
+        document.getElementById('calcWrap').style.display = 'none';
+        document.getElementById('calcToggle').innerHTML = '🧮 Calculator';
         document.getElementById('addModalOverlay').classList.add('show');
     }
 
@@ -866,6 +881,7 @@
         document.getElementById('addSelectedIcon').value = '';
         document.getElementById('selectedItemDisplay').style.display = 'none';
         document.getElementById('noItemSelected').style.display = 'block';
+        document.getElementById('addItemGrid').parentElement.style.display = 'block';
         renderAddItemGrid();
     }
 
@@ -1158,6 +1174,63 @@
         renderItemsManagerList();
         renderQuickItems();
         renderAddItemGrid();
+    }
+
+    // ─── CALCULATOR ───
+    function toggleCalc() {
+        const wrap = document.getElementById('calcWrap');
+        const btn = document.getElementById('calcToggle');
+        if (wrap.style.display === 'none') {
+            wrap.style.display = 'block';
+            btn.innerHTML = '🔽 Hide Calculator';
+        } else {
+            wrap.style.display = 'none';
+            btn.innerHTML = '🧮 Calculator';
+        }
+    }
+    function calcInput(val) {
+        const inp = document.getElementById('addAmount');
+        if (calcResetOnInput) { inp.value = ''; calcResetOnInput = false; }
+        if (val === '.' && inp.value.includes('.')) return;
+        inp.value += val;
+        inp.focus();
+    }
+    function calcOp(op) {
+        const inp = document.getElementById('addAmount');
+        const currentVal = parseFloat(inp.value) || 0;
+        calcExpr = currentVal + ' ' + op + ' ';
+        document.getElementById('calcExpr').innerText = calcExpr;
+        inp.value = '';
+        calcResetOnInput = false;
+        inp.focus();
+    }
+    function calcClear() {
+        document.getElementById('addAmount').value = '';
+        calcExpr = '';
+        document.getElementById('calcExpr').innerText = '';
+        calcResetOnInput = false;
+    }
+    function calcEquals() {
+        const inp = document.getElementById('addAmount');
+        const currentVal = parseFloat(inp.value) || 0;
+        if (calcExpr) {
+            const parts = calcExpr.trim().split(' ');
+            const prevVal = parseFloat(parts[0]) || 0;
+            const op = parts[1];
+            let result = 0;
+            switch(op) {
+                case '+': result = prevVal + currentVal; break;
+                case '-': result = prevVal - currentVal; break;
+                case '*': result = prevVal * currentVal; break;
+                case '/': result = currentVal !== 0 ? prevVal / currentVal : 0; break;
+                default: result = currentVal;
+            }
+            document.getElementById('calcExpr').innerText = calcExpr + currentVal + ' = ' + result.toFixed(2);
+            inp.value = result.toFixed(2);
+            calcExpr = '';
+            calcResetOnInput = true;
+        }
+        inp.focus();
     }
 
     // ─── KEYBOARD ───
