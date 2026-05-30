@@ -599,15 +599,6 @@ function render(data){
     }
 
     const groups = {};
-    
-    // Separate failed broadcast items into their own group
-    const failedItems = data.filter(item => item.send_status === 'failed');
-    if (failedItems.length > 0) {
-        groups['failed_broadcasts'] = failedItems.map((item, fi) => {
-            item._is_failed = true;
-            return item;
-        });
-    }
 
     data.forEach(item => {
         const key = item.type || "upcoming";
