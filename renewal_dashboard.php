@@ -541,7 +541,7 @@ function applyFilter(filterType){
     }
 }
 
-function getGroupTitle(type){>>>>>>> REPLACE
+function getGroupTitle(type){
     if(type === "failed_broadcasts") return "⚠️ Failed Broadcasts";
     if(type === "expired") return "Grace Period (Expired)";
     if(type === "today") return "Expires Today";
