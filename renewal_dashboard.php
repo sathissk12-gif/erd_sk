@@ -119,6 +119,103 @@ body {
     gap: 12px;
     margin: 20px auto 32px;
     max-width: 1200px;
+    flex-wrap: wrap;
+}
+
+/* Filter Tabs */
+.filter-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 auto 24px;
+    max-width: 1200px;
+    justify-content: center;
+}
+
+.filter-tab {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: 'Outfit', sans-serif;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.filter-tab:hover {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--text-main);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.filter-tab.active {
+    background: rgba(99, 102, 241, 0.18);
+    color: var(--primary-light);
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+}
+
+.filter-tab .count {
+    background: rgba(255,255,255,0.08);
+    padding: 1px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.filter-tab.active .count {
+    background: rgba(99, 102, 241, 0.3);
+}
+
+.filter-tab.tab-expired {
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+.filter-tab.tab-expired:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+.filter-tab.tab-expired.active {
+    background: rgba(239, 68, 68, 0.18);
+    border-color: #ef4444;
+    color: #fca5a5;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+}
+
+.filter-tab.tab-today {
+    border-color: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+}
+.filter-tab.tab-today:hover {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.4);
+}
+.filter-tab.tab-today.active {
+    background: rgba(251, 191, 36, 0.18);
+    border-color: #fbbf24;
+    color: #fde68a;
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.15);
+}
+
+.filter-tab.tab-grace {
+    border-color: rgba(168, 85, 247, 0.2);
+    color: #c084fc;
+}
+.filter-tab.tab-grace:hover {
+    background: rgba(168, 85, 247, 0.1);
+    border-color: rgba(168, 85, 247, 0.4);
+}
+.filter-tab.tab-grace.active {
+    background: rgba(168, 85, 247, 0.18);
+    border-color: #a855f7;
+    color: #d8b4fe;
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.15);
 }
 
 .section { margin-bottom: 40px; animation: fadeIn 0.35s ease-out; }
@@ -353,6 +450,9 @@ body {
         <button class="back-btn" onclick="loadReminders()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
     </div>
 
+    <!-- Filter Tabs -->
+    <div class="filter-tabs" id="filterTabs"></div>
+
     <div id="content">
         <div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> Fetching renewal statuses...</div>
     </div>
@@ -362,6 +462,7 @@ body {
 const API = "api_renewal_automation.php?action=list_due";
 let stockData = [];
 let graceLimit = 5;
+let activeFilter = "all"; // "all", "today", "expired", "d1", "d2", "d3", "d4", "d5"
 
 function escapeHtml(value){
     return String(value ?? "").replace(/[&<>"']/g, ch => ({
@@ -379,16 +480,68 @@ function loadReminders(){
         .then(res => res.json())
         .then(res => {
             if(!res.success) throw new Error(res.message || "Unable to load reminders");
-            stockData = res.data || [];
+            stockData = (res.data || []).map((item, idx) => { item._idx = idx; return item; });
             graceLimit = res.graceTotal || 5;
-            render(stockData);
+            buildFilterTabs(stockData);
+            applyFilter(activeFilter);
         })
         .catch(() => {
             document.getElementById("content").innerHTML = `<div class="loading" style="color:#ef4444;">Failed to load reminders. Please refresh the page.</div>`;
+            document.getElementById("filterTabs").innerHTML = '';
         });
 }
 
-function getGroupTitle(type){
+// ── Filter Tabs ──────────────────────────────────────────────
+const FILTER_DEFS = [
+    { type: "all",     label: "All",              icon: "fa-solid fa-layer-group",        cls: "" },
+    { type: "today",   label: "Expires Today",     icon: "fa-solid fa-calendar-day",       cls: "tab-today" },
+    { type: "expired", label: "Grace Period",      icon: "fa-solid fa-clock",              cls: "tab-grace" },
+    { type: "d1",      label: "1 Day",             icon: "fa-solid fa-hourglass-start",    cls: "" },
+    { type: "d2",      label: "2 Days",            icon: "fa-solid fa-hourglass-half",     cls: "" },
+    { type: "d3",      label: "3 Days",            icon: "fa-solid fa-hourglass-end",      cls: "" },
+    { type: "d4",      label: "4 Days",            icon: "fa-solid fa-hourglass",          cls: "" },
+    { type: "d5",      label: "5 Days",            icon: "fa-solid fa-hourglass",          cls: "" },
+];
+
+function buildFilterTabs(data){
+    const container = document.getElementById("filterTabs");
+    if(!container) return;
+
+    // Count items per type
+    const counts = { all: data.length };
+    FILTER_DEFS.forEach(def => {
+        if(def.type === "all") return;
+        counts[def.type] = data.filter(item => item.type === def.type).length;
+    });
+
+    let html = FILTER_DEFS.map(def => {
+        const count = counts[def.type] || 0;
+        const active = activeFilter === def.type ? "active" : "";
+        const extraCls = def.cls ? ` ${def.cls}` : "";
+        return `<button class="filter-tab${extraCls} ${active}" data-filter="${def.type}" onclick="applyFilter('${def.type}')">
+            <i class="${def.icon}"></i> ${def.label} <span class="count">${count}</span>
+        </button>`;
+    }).join("");
+
+    container.innerHTML = html;
+}
+
+function applyFilter(filterType){
+    activeFilter = filterType;
+    // Update active class on tabs
+    document.querySelectorAll(".filter-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.filter === filterType);
+    });
+    // Filter data
+    if(filterType === "all"){
+        render(stockData);
+    } else {
+        const filtered = stockData.filter(item => item.type === filterType);
+        render(filtered);
+    }
+}
+
+function getGroupTitle(type){>>>>>>> REPLACE
     if(type === "failed_broadcasts") return "⚠️ Failed Broadcasts";
     if(type === "expired") return "Grace Period (Expired)";
     if(type === "today") return "Expires Today";
@@ -456,8 +609,7 @@ function render(data){
         });
     }
 
-    data.forEach((item, idx) => {
-        item._idx = idx;
+    data.forEach(item => {
         const key = item.type || "upcoming";
         if(!groups[key]) groups[key] = [];
         groups[key].push(item);
