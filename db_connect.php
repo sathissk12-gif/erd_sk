@@ -6,9 +6,9 @@ date_default_timezone_set('Asia/Kolkata');
 
 // Intha details-ah unga Hostinger DB details-ku maathunga
 $host = "127.0.0.1";
-$dbname = "u182809524_sk_core"; // Replace with your DB name
-$username = "u182809524_skerode";    // Replace with your DB username
-$password = "S@kenterprises6198";       // Replace with your DB password
+$dbname = "erd_sk"; // Replace with your DB name
+$username = "erd_sk";    // Replace with your DB username
+$password = "Skenterprises";       // Replace with your DB password
 
 try {
     $conn = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
